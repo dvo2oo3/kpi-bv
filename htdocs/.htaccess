@@ -1,0 +1,36 @@
+# ---- Ép dùng HTTPS (InfinityFree cấp SSL miễn phí, nhớ bật trong Control Panel) ----
+RewriteEngine On
+RewriteCond %{HTTP:X-Forwarded-Proto} !https
+RewriteCond %{HTTPS} !=on
+RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+
+# ---- Không liệt kê thư mục ----
+Options -Indexes
+
+# ---- Trang mặc định ----
+DirectoryIndex index.php
+
+# ---- Chặn truy cập file nhạy cảm ----
+<FilesMatch "\.(sql|md|log|ini)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Trang lỗi 403 nội bộ, không cho gọi trực tiếp
+<Files "_403.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</Files>
+
+# ---- Tiêu đề bảo mật ----
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "same-origin"
+</IfModule>

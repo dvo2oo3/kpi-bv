@@ -1,0 +1,10 @@
+# Thư mục này chỉ chứa mã nguồn được include, không cho truy cập trực tiếp
+# (đặc biệt là config.php chứa mật khẩu CSDL).
+
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>
