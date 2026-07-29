@@ -56,13 +56,15 @@ function dau_cong_yte(): string
     <div class="dn-trang-tri" aria-hidden="true">
       <span class="dn-quang dn-quang-1"></span>
       <span class="dn-quang dn-quang-2"></span>
-      <span class="dn-cong dn-cong-1"><?= dau_cong_yte() ?></span>
-      <span class="dn-cong dn-cong-2"><?= dau_cong_yte() ?></span>
-      <span class="dn-cong dn-cong-3"><?= dau_cong_yte() ?></span>
-      <svg class="dn-ecg" viewBox="0 0 1200 120" preserveAspectRatio="none">
-        <path pathLength="1" d="M0 60 H250 l18 0 l10 -8 l8 16 l10 -50 l10 64 l12 -30 l10 8 l18 0
-          H620 l10 -8 l8 16 l10 -50 l10 64 l12 -30 l10 8 H980 l10 -8 l8 16 l10 -50 l10 64 l12 -30 l10 8 H1200"/>
-      </svg>
+      <?php foreach ([
+        // top%, left%, cỡ(px), độ mờ, xoay(độ) — rải quanh, chừa giữa
+        [6,12,46,.11,12], [10,72,60,.12,-12], [22,30,26,.08,6],
+        [28,88,32,.09,18], [46,6,44,.10,-14], [54,90,52,.11,10],
+        [70,16,34,.09,-8], [78,68,46,.10,16], [86,40,26,.08,-6],
+        [16,50,20,.06,0], [64,52,18,.05,12], [90,82,30,.09,20],
+      ] as [$t, $l, $s, $o, $rot]): ?>
+        <span class="dn-cong" style="top:<?= $t ?>%;left:<?= $l ?>%;width:<?= $s ?>px;opacity:<?= $o ?>;transform:rotate(<?= $rot ?>deg)"><?= dau_cong_yte() ?></span>
+      <?php endforeach; ?>
     </div>
     <div class="dn-th-trong">
       <div class="dn-th-noi">

@@ -2083,3 +2083,17 @@ body.dang-keo-cot .cot-keo::after { background: var(--xanh-500); }
 @media (prefers-reduced-motion: reduce) {
   .dn-thuong-hieu h1 { animation: none; }
 }
+
+/* ---- Panel đăng nhập: căn giữa logo + tiêu đề (theo mẫu tham chiếu) ---- */
+.dn-th-noi { max-width: 520px; margin: auto; text-align: center; }
+.dn-thuong-hieu h1 { text-align: center; }
+.dn-thuong-hieu h1::after { margin-left: auto; margin-right: auto; }
+
+/* Logo giữa, to hơn — chỉ áp cho panel trái, không đụng logo nhỏ ở form */
+.dn-thuong-hieu .dn-logo { margin: 0 auto 24px; width: 82px; height: 82px; border-radius: 22px; }
+.dn-thuong-hieu .dn-logo svg { width: 44px; height: 44px; }
+.dn-thuong-hieu .dn-logo::after { inset: -18px; border-radius: 30px; }
+.dn-logo-nho::after { display: none; }   /* bỏ quầng sáng ở logo nhỏ trên nền trắng */
+
+/* Trường dấu + rải quanh: tĩnh, giữ góc xoay theo inline style */
+.dn-cong { animation: none; }
