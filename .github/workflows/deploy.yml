@@ -1,0 +1,37 @@
+# Tự động đẩy code lên InfinityFree qua FTP mỗi khi push lên nhánh main.
+#
+# CẦN LÀM TRƯỚC (một lần):
+#   1) InfinityFree panel → Account → "FTP Accounts": lấy Hostname / Username / Password.
+#   2) GitHub repo → Settings → Secrets and variables → Actions → New repository secret,
+#      thêm 3 secret:  FTP_HOST   FTP_USERNAME   FTP_PASSWORD
+#   3) Tải app/config.php (đã điền creds MySQL thật) lên server MỘT LẦN bằng File Manager.
+#      Workflow này CỐ Ý bỏ qua config.php để không ghi đè creds thật của server.
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:        # cho phép bấm chạy tay trong tab Actions
+
+jobs:
+  ftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy htdocs qua FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          local-dir: ./htdocs/
+          server-dir: /htdocs/
+          # Không đụng tới config.php (giữ creds thật của server) và các thứ không cần
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/app/config.php
+            **/*.md

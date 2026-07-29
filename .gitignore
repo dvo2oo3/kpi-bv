@@ -1,0 +1,7 @@
+# Cấu hình thật chứa mật khẩu DB — KHÔNG đưa lên GitHub.
+# Dùng config.example.php làm mẫu; bản thật chỉ nằm trên server + máy cá nhân.
+/htdocs/app/config.php
+
+# CSDL thử nghiệm cục bộ
+*.sqlite
+*.sqlite3
