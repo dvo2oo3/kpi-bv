@@ -285,6 +285,52 @@ mo_trang('Giao chỉ tiêu');
   <?php dong_tro_giup(); ?>
 </form>
 
+<?php if ($duocThemCT):
+    $ndLon = array_values(array_filter($dsCT, fn($c) => $c['cap'] === 0)); ?>
+<div class="the-them-ct">
+  <div class="the-them-ct-dau">+ Thêm chỉ tiêu cho khoa này</div>
+  <div class="them-ct-hang">
+    <input type="text" name="ct_ten" form="them-ct" id="o-ct-ten" class="o-ten-moi"
+           placeholder="Nhập nội dung chỉ tiêu mới…" autocomplete="off">
+    <input type="text" name="ct_don_vi" form="them-ct" class="o-dv-moi"
+           placeholder="Đơn vị" autocomplete="off">
+    <select name="ct_cha" form="them-ct" class="o-cha-moi">
+      <option value="">— Là nội dung lớn —</option>
+      <?php foreach ($ndLon as $c): ?>
+        <option value="<?= (int)$c['id'] ?>">↳ nằm trong: <?= e($c['ten']) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <button class="nut nut-nho nut-chinh" type="submit" form="them-ct">+ Thêm dòng</button>
+    <button type="button" class="nut-nang-cao" onclick="hienNangCao()">Tùy chọn khác</button>
+  </div>
+  <div class="luoi-nang-cao" id="dong-nang-cao" hidden>
+    <label>Mã chỉ tiêu
+      <input type="text" name="ct_ma" form="them-ct" placeholder="tự sinh từ nội dung">
+    </label>
+    <label>Loại giá trị
+      <select name="ct_loai" form="them-ct">
+        <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO'] as $v): ?>
+          <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label>Cách đánh giá
+      <select name="ct_huong" form="them-ct">
+        <?php foreach (['CAO_TOT','THAP_TOT','DICH_CO_DINH'] as $v): ?>
+          <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label>Phân bổ ra tháng
+      <select name="ct_phan_bo" form="them-ct">
+        <option value="THEO_NGAY"><?= e(NHAN['THEO_NGAY']) ?></option>
+        <option value="KHONG_CHIA"><?= e(NHAN['KHONG_CHIA']) ?></option>
+      </select>
+    </label>
+  </div>
+</div>
+<?php endif; ?>
+
 <form method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="luu">
@@ -302,60 +348,6 @@ mo_trang('Giao chỉ tiêu');
       </tr>
     </thead>
     <tbody>
-    <?php if ($duocThemCT):
-        // Các ô dưới đây thuộc biểu mẫu "them-ct" đặt sau bảng —
-        // HTML không cho lồng biểu mẫu trong biểu mẫu.
-        $ndLon = array_values(array_filter($dsCT, fn($c) => $c['cap'] === 0)); ?>
-    <tr class="dong-them-ct" id="ct-moi">
-      <td>
-        <input type="text" name="ct_ten" form="them-ct" id="o-ct-ten"
-               placeholder="Nhập nội dung chỉ tiêu mới rồi bấm Thêm dòng…" autocomplete="off">
-      </td>
-      <td><input type="text" name="ct_don_vi" form="them-ct"
-                 placeholder="Đơn vị" autocomplete="off"></td>
-      <td colspan="5">
-        <div class="hang-them">
-          <select name="ct_cha" form="them-ct">
-            <option value="">— Là nội dung lớn —</option>
-            <?php foreach ($ndLon as $c): ?>
-              <option value="<?= (int)$c['id'] ?>">↳ nằm trong: <?= e($c['ten']) ?></option>
-            <?php endforeach; ?>
-          </select>
-          <button class="nut nut-nho" type="submit" form="them-ct">+ Thêm dòng</button>
-          <button type="button" class="nut-nang-cao" onclick="hienNangCao()">Tùy chọn khác</button>
-        </div>
-      </td>
-    </tr>
-    <tr class="dong-them-ct nang-cao" id="dong-nang-cao" hidden>
-      <td colspan="7">
-        <div class="luoi-nang-cao">
-          <label>Mã chỉ tiêu
-            <input type="text" name="ct_ma" form="them-ct" placeholder="tự sinh từ nội dung">
-          </label>
-          <label>Loại giá trị
-            <select name="ct_loai" form="them-ct">
-              <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO'] as $v): ?>
-                <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </label>
-          <label>Cách đánh giá
-            <select name="ct_huong" form="them-ct">
-              <?php foreach (['CAO_TOT','THAP_TOT','DICH_CO_DINH'] as $v): ?>
-                <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
-              <?php endforeach; ?>
-            </select>
-          </label>
-          <label>Phân bổ ra tháng
-            <select name="ct_phan_bo" form="them-ct">
-              <option value="THEO_NGAY"><?= e(NHAN['THEO_NGAY']) ?></option>
-              <option value="KHONG_CHIA"><?= e(NHAN['KHONG_CHIA']) ?></option>
-            </select>
-          </label>
-        </div>
-      </td>
-    </tr>
-    <?php endif; ?>
     <?php foreach ($dsCT as $ct):
         $r = $kh[$ct['id']] ?? null;
         $tuTinh = $ct['nguon'] !== 'NHAP_TAY'; ?>

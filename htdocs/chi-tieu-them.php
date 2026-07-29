@@ -79,13 +79,13 @@ if (la_post()) {
     $loi = null;
     if (!$chon) {
         $loi = 'Bước 1: phải chọn ít nhất một khoa, nếu không chỉ tiêu sẽ không hiện ra để nhập.';
-    } elseif (!preg_match('/^[A-Z0-9_]{2,30}$/', $ma)) {
-        $loi = 'Mã chỉ tiêu chỉ gồm chữ in hoa, số và gạch dưới, dài 2–30 ký tự.';
     } elseif ($ten === '') {
         $loi = 'Vui lòng nhập nội dung chỉ tiêu.';
     } elseif (!$f) {
         $loi = 'Thông số chỉ tiêu không hợp lệ.';
-    } elseif (qVal('SELECT 1 FROM chi_tieu WHERE ma = ?', [$ma])) {
+    } elseif ($ma !== '' && !preg_match('/^[A-Z0-9_]{2,30}$/', $ma)) {
+        $loi = 'Mã chỉ tiêu chỉ gồm chữ in hoa, số và gạch dưới, dài 2–30 ký tự.';
+    } elseif ($ma !== '' && qVal('SELECT 1 FROM chi_tieu WHERE ma = ?', [$ma])) {
         $loi = "Mã chỉ tiêu \"$ma\" đã tồn tại.";
     } elseif ($idCha !== null) {
         $cha = q1('SELECT * FROM chi_tieu WHERE id = ?', [$idCha]);
@@ -99,6 +99,10 @@ if (la_post()) {
     if ($loi !== null) {
         nhan_tin('loi', $loi);
     } else {
+        // Bỏ trống mã thì tự sinh từ nội dung
+        if ($ma === '') {
+            $ma = ma_tu_ten($ten);
+        }
         $thuTu = $idCha !== null
             ? (int)qVal('SELECT COALESCE(MAX(thu_tu),0) FROM chi_tieu WHERE id = ? OR id_cha = ?',
                 [$idCha, $idCha]) + 1
@@ -239,8 +243,9 @@ mo_trang('Thêm chỉ tiêu');
       <?php mo_tro_giup('tg-thong-tin', 'Giải thích các ô ở bước 3'); ?>
         <dl class="giai-nghia">
           <dt>Mã chỉ tiêu</dt>
-          <dd>Chữ in hoa, số, gạch dưới. VD <code>TIEM_CHUNG</code>.
-              Bộ máy tính toán tham chiếu theo mã nên sau này không đổi được.</dd>
+          <dd><strong>Để trống là được</strong> — hệ thống tự tạo mã từ nội dung
+              (VD "Tổng số lượt tiêm chủng" → <code>TONG_SO_LUOT_TIEM_CHUNG</code>).
+              Chỉ tự đặt khi cần mã riêng; mã tham chiếu trong tính toán nên sau không đổi được.</dd>
           <dt>Loại giá trị</dt>
           <dd><strong>Đếm</strong> — cộng dồn được qua các tháng (lượt khám, ca thủ thuật).<br>
               <strong>Trung bình</strong> và <strong>Tỷ lệ</strong> — không cộng dồn,
@@ -260,8 +265,9 @@ mo_trang('Thêm chỉ tiêu');
     </div>
 
     <div class="luoi-truong">
-      <label>Mã chỉ tiêu
-        <input type="text" name="ma" value="<?= e(post('ma')) ?>" required>
+      <label>Mã chỉ tiêu <small class="nhan-phu">(để trống sẽ tự sinh)</small>
+        <input type="text" name="ma" value="<?= e(post('ma')) ?>"
+               placeholder="Để trống — tự tạo từ nội dung">
       </label>
       <label>Nội dung
         <input type="text" name="ten" value="<?= e(post('ten')) ?>"

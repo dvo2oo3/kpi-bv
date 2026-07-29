@@ -2097,3 +2097,23 @@ body.dang-keo-cot .cot-keo::after { background: var(--xanh-500); }
 
 /* Trường dấu + rải quanh: tĩnh, giữ góc xoay theo inline style */
 .dn-cong { animation: none; }
+
+/* ---- Thẻ "Thêm chỉ tiêu" ở Giao chỉ tiêu (đưa ra ngoài bảng) ---- */
+.the-them-ct {
+  margin: 0 0 16px; padding: 14px 16px;
+  background: var(--xanh-50, #f0f9ff);
+  border: 1px solid var(--vien, #e2e8f0);
+  border-radius: var(--bo-goc, 10px);
+}
+.the-them-ct-dau {
+  font-weight: 600; font-size: 13px; color: var(--xanh-900, #0f172a);
+  margin-bottom: 10px;
+}
+.them-ct-hang { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.them-ct-hang .o-ten-moi { flex: 1 1 260px; min-width: 200px; }
+.them-ct-hang .o-dv-moi  { flex: 0 0 90px; }
+.them-ct-hang .o-cha-moi { flex: 0 1 220px; }
+.the-them-ct .luoi-nang-cao { margin-top: 12px; }
+
+/* Nhãn phụ nhỏ cạnh tên trường */
+.nhan-phu { font-weight: 400; color: var(--chu-3, #64748b); font-size: 12px; }
