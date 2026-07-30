@@ -16,14 +16,12 @@ function dong_giao(array $ct, ?array $r, int $nam, int $idKhoa,
           <?= $laMoi ? 'id="dong-moi"' : '' ?>>
         <td>
           <div class="o-ten-ct">
-            <?php if ($duocSuaCT): ?><span class="ct-keo" draggable="true"
-                  title="Kéo để đổi vị trí" aria-hidden="true">⠿</span><?php endif; ?>
             <?= $ct['cap'] ? '<span class="thut">↳</span>' : '' ?>
             <?php if ($duocSuaCT): ?>
               <input type="text" name="ct_ten[<?= $ct['id'] ?>]" class="o-sua-ten"
                      value="<?= e($ct['ten']) ?>" title="Sửa trực tiếp rồi bấm Lưu chỉ tiêu">
             <?php else: ?>
-              <span><?= e($ct['ten']) ?></span>
+              <span class="ten-ct-chu"><?= e($ct['ten']) ?></span>
             <?php endif; ?>
             <?php if ($laMoi): ?><span class="the the-nho the-moi">vừa thêm</span><?php endif; ?>
             <?php if ($ct['huong'] === 'THAP_TOT'): ?>
@@ -31,18 +29,16 @@ function dong_giao(array $ct, ?array $r, int $nam, int $idKhoa,
             <?php elseif ($ct['huong'] === 'DICH_CO_DINH'): ?>
               <span class="the the-nho">đích 100%</span>
             <?php endif; ?>
-            <?php if ($ct['cap'] === 0 && $duocThemCT): ?>
-              <button type="button" class="them-con-nut" data-cha="<?= $ct['id'] ?>"
-                      title="Thêm nội dung con vào mục này">＋ con</button>
-            <?php endif; ?>
             <?php $coXoa = co_quyen('chitieu.xoa') && !la_he_thong($ct['ma']);
-                  if ($duocSuaCT || $coXoa): ?>
-              <span class="ct-thaotac">
+                  $coThemCon = $ct['cap'] === 0 && $duocThemCT;
+                  if ($duocSuaCT || $coXoa || $coThemCon): ?>
+              <span class="ct-dieu-khien">
                 <?php if ($duocSuaCT): ?>
-                  <button type="button" class="ct-nut" title="Chuyển lên"
-                          onclick="chuyenCT(<?= $ct['id'] ?>,'len')">▲</button>
-                  <button type="button" class="ct-nut" title="Chuyển xuống"
-                          onclick="chuyenCT(<?= $ct['id'] ?>,'xuong')">▼</button>
+                  <span class="ct-keo ct-nut" draggable="true" title="Kéo để đổi vị trí">⠿</span>
+                <?php endif; ?>
+                <?php if ($coThemCon): ?>
+                  <button type="button" class="them-con-nut ct-nut" data-cha="<?= $ct['id'] ?>"
+                          title="Thêm nội dung con">＋</button>
                 <?php endif; ?>
                 <?php if ($coXoa): ?>
                   <button type="button" class="ct-nut ct-nut-xoa" title="Xóa chỉ tiêu"
@@ -596,6 +592,8 @@ mo_trang('Giao chỉ tiêu');
   <p><button class="nut nut-chinh" type="submit">Lưu chỉ tiêu</button></p>
 </form>
 
+<?php endif; ?>
+
 <?php if ($duocThemCT): ?>
   <!-- Mỗi nội dung lớn một biểu mẫu ẩn để nút "+ con" gửi thẳng, không lồng
        biểu mẫu vào biểu mẫu "luu" của bảng. -->
@@ -791,7 +789,6 @@ document.addEventListener('click', function (e) {
   if (m) { m.scrollIntoView({ block: 'center' }); }
 })();
 </script>
-<?php endif; ?>
 
 <h2>Xem trước phân bổ 12 tháng</h2>
 <p class="phu">
