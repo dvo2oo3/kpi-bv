@@ -2117,3 +2117,67 @@ body.dang-keo-cot .cot-keo::after { background: var(--xanh-500); }
 
 /* Nhãn phụ nhỏ cạnh tên trường */
 .nhan-phu { font-weight: 400; color: var(--chu-3, #64748b); font-size: 12px; }
+
+/* ---- Nút thao tác chỉ tiêu trong bảng Giao chỉ tiêu (▲▼✕) ---- */
+.ct-thaotac { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle;
+  opacity: 0; transition: opacity .12s; }
+tr:hover .ct-thaotac, .ct-thaotac:focus-within { opacity: 1; }
+.ct-nut {
+  border: 1px solid var(--vien, #e2e8f0); background: #fff; color: var(--chu-2, #475569);
+  width: 22px; height: 22px; line-height: 1; border-radius: 6px; cursor: pointer;
+  font-size: 11px; padding: 0; display: inline-grid; place-items: center;
+}
+.ct-nut:hover { background: var(--xanh-50, #f0f9ff); border-color: var(--xanh-500, #0ea5e9);
+  color: var(--xanh-700, #0369a1); }
+.ct-nut-xoa:hover { background: #fef2f2; border-color: var(--loi, #ef4444); color: var(--loi, #ef4444); }
+
+/* ---- Kéo-thả đổi vị trí chỉ tiêu ---- */
+.ct-keo {
+  cursor: grab; user-select: none; margin-right: 4px;
+  color: var(--chu-3, #94a3b8); font-size: 13px; line-height: 1;
+  opacity: 0; transition: opacity .12s;
+}
+tr:hover .ct-keo { opacity: .75; }
+.ct-keo:hover { color: var(--xanh-600, #0284c7); }
+.ct-keo:active { cursor: grabbing; }
+tr.dang-keo { opacity: .4; }
+tr.keo-tren td { box-shadow: inset 0 2px 0 var(--xanh-500, #0ea5e9); }
+tr.keo-duoi td { box-shadow: inset 0 -2px 0 var(--xanh-500, #0ea5e9); }
+
+/* ---- Đánh số thứ tự đầu mục lớn ở bảng Giao chỉ tiêu ---- */
+.bang-nhap tbody { counter-reset: stt-daumuc; }
+/* Chỉ đếm dòng đầu mục lớn (không phải con, không phải dòng "+con") */
+.bang-nhap tbody tr:not(.dong-con):not(.dong-them-con) { counter-increment: stt-daumuc; }
+.bang-nhap tbody tr:not(.dong-con):not(.dong-them-con) .o-ten-ct::before {
+  content: counter(stt-daumuc);
+  flex: 0 0 auto; order: -1;
+  display: inline-grid; place-items: center;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  background: var(--xanh-100, #e0f2fe); color: var(--xanh-800, #075985);
+  border-radius: 6px; font-size: 11.5px; font-weight: 700; line-height: 1;
+}
+
+/* ---- Nút nổi "Thêm chỉ tiêu" (đi theo màn hình) + popup ---- */
+.nut-noi {
+  position: fixed; right: 24px; bottom: 24px; z-index: 40;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 20px 12px 16px; border: 0; border-radius: 999px; cursor: pointer;
+  background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%); color: #fff;
+  font: inherit; font-weight: 600; font-size: 14px;
+  box-shadow: 0 8px 22px rgba(2, 132, 199, .45);
+  transition: transform .12s, box-shadow .12s;
+}
+.nut-noi:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(2, 132, 199, .55); }
+.nut-noi:active { transform: translateY(0); }
+.nut-noi-cong { font-size: 21px; font-weight: 700; line-height: 1; }
+.hang-nang-cao { margin: 10px 0 4px; }
+.them-ct-ket {
+  display: block; margin: 8px 0 0; padding: 6px 10px;
+  background: #f0fdf4; color: var(--ok, #16a34a); border-radius: 8px;
+  font-size: 13px; font-weight: 600;
+}
+@media (max-width: 640px) {
+  .nut-noi { right: 16px; bottom: 16px; padding: 14px; }
+  .nut-noi-chu { display: none; }
+  .nut-noi-cong { font-size: 24px; }
+}

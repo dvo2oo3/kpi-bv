@@ -7,6 +7,126 @@ require_once __DIR__ . '/app/layout.php';
 require_once __DIR__ . '/app/chi_tieu.php';
 require_once __DIR__ . '/app/danh_muc.php';
 
+function dong_giao(array $ct, ?array $r, int $nam, int $idKhoa,
+    bool $duocSuaCT, bool $duocThemCT, bool $laMoi = false): string
+{
+    ob_start(); ?>
+      <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?><?= $laMoi ? ' vua-them' : '' ?>"
+          data-id="<?= (int)$ct['id'] ?>" data-cha="<?= $ct['id_cha'] !== null ? (int)$ct['id_cha'] : '' ?>"
+          <?= $laMoi ? 'id="dong-moi"' : '' ?>>
+        <td>
+          <div class="o-ten-ct">
+            <?php if ($duocSuaCT): ?><span class="ct-keo" draggable="true"
+                  title="Kéo để đổi vị trí" aria-hidden="true">⠿</span><?php endif; ?>
+            <?= $ct['cap'] ? '<span class="thut">↳</span>' : '' ?>
+            <?php if ($duocSuaCT): ?>
+              <input type="text" name="ct_ten[<?= $ct['id'] ?>]" class="o-sua-ten"
+                     value="<?= e($ct['ten']) ?>" title="Sửa trực tiếp rồi bấm Lưu chỉ tiêu">
+            <?php else: ?>
+              <span><?= e($ct['ten']) ?></span>
+            <?php endif; ?>
+            <?php if ($laMoi): ?><span class="the the-nho the-moi">vừa thêm</span><?php endif; ?>
+            <?php if ($ct['huong'] === 'THAP_TOT'): ?>
+              <span class="the the-nho">thấp là tốt</span>
+            <?php elseif ($ct['huong'] === 'DICH_CO_DINH'): ?>
+              <span class="the the-nho">đích 100%</span>
+            <?php endif; ?>
+            <?php if ($ct['cap'] === 0 && $duocThemCT): ?>
+              <button type="button" class="them-con-nut" data-cha="<?= $ct['id'] ?>"
+                      title="Thêm nội dung con vào mục này">＋ con</button>
+            <?php endif; ?>
+            <?php $coXoa = co_quyen('chitieu.xoa') && !la_he_thong($ct['ma']);
+                  if ($duocSuaCT || $coXoa): ?>
+              <span class="ct-thaotac">
+                <?php if ($duocSuaCT): ?>
+                  <button type="button" class="ct-nut" title="Chuyển lên"
+                          onclick="chuyenCT(<?= $ct['id'] ?>,'len')">▲</button>
+                  <button type="button" class="ct-nut" title="Chuyển xuống"
+                          onclick="chuyenCT(<?= $ct['id'] ?>,'xuong')">▼</button>
+                <?php endif; ?>
+                <?php if ($coXoa): ?>
+                  <button type="button" class="ct-nut ct-nut-xoa" title="Xóa chỉ tiêu"
+                          onclick="xoaCT(<?= $ct['id'] ?>)">✕</button>
+                <?php endif; ?>
+              </span>
+            <?php endif; ?>
+          </div>
+        </td>
+        <td class="nho">
+          <?php if ($duocSuaCT): ?>
+            <input type="text" name="ct_don_vi[<?= $ct['id'] ?>]" class="o-sua-don-vi"
+                   value="<?= e($ct['don_vi']) ?>">
+          <?php else: ?>
+            <?= e($ct['don_vi']) ?>
+          <?php endif; ?>
+        </td>
+        <td><input type="text" inputmode="decimal" name="giao[<?= $ct['id'] ?>]"
+                   value="<?= $r && $r['chi_tieu_giao'] !== null ? e(so_o_nhap($r['chi_tieu_giao'])) : '' ?>"
+                   class="o-so"></td>
+        <td>
+          <!-- Gợi ý nằm CẠNH ô nhập, không nằm dưới: xuống dòng thì dòng bảng
+               cao hơn các dòng khác và cả bảng nhấp nhô. -->
+          <div class="o-kem-goi-y">
+            <input type="text" inputmode="decimal" name="nang_luc[<?= $ct['id'] ?>]"
+                   value="<?= $r && $r['chi_tieu_nang_luc'] !== null ? e(so_o_nhap($r['chi_tieu_nang_luc'])) : '' ?>"
+                   class="o-so o-phu">
+            <?php $goiY = nang_luc_theo_giuong_benh($nam, $idKhoa, $ct['ma']);
+            if ($goiY !== null): ?>
+              <span class="goi-y">tính được: <?= so($goiY, 2) ?></span>
+            <?php endif; ?>
+          </div>
+        </td>
+        <td class="phai nho">
+          <?php
+          $giaoV = $r && $r['chi_tieu_giao'] !== null ? (float)$r['chi_tieu_giao'] : null;
+          $nlV   = $r && $r['chi_tieu_nang_luc'] !== null ? (float)$r['chi_tieu_nang_luc'] : null;
+          if ($giaoV !== null && $nlV !== null && $nlV > 0):
+              $ty = $giaoV / $nlV * 100;
+              // Dưới 80% năng lực nghĩa là chỉ tiêu giao còn rộng so với số giường
+              $lop = $ty < 80 ? 'ty-thap' : ($ty > 105 ? 'ty-cao' : 'ty-vua'); ?>
+            <span class="<?= $lop ?>"><?= phan_tram($ty) ?></span>
+          <?php else: ?>
+            <span class="phu">—</span>
+          <?php endif; ?>
+        </td>
+        <td><input type="text" inputmode="decimal" name="nam_truoc[<?= $ct['id'] ?>]"
+                   value="<?= $r && $r['th_nam_truoc'] !== null ? e(so_o_nhap($r['th_nam_truoc'])) : '' ?>"
+                   class="o-so o-phu"></td>
+        <td class="nho mot-dong">
+          <?= $ct['phan_bo'] === 'THEO_NGAY'
+              ? 'chia theo số ngày'
+              : '<strong>giữ nguyên mọi tháng</strong>' ?>
+        </td>
+      </tr>
+      <?php if ($ct['cap'] === 0 && $duocThemCT): ?>
+      <tr class="dong-them-con" id="them-con-<?= $ct['id'] ?>" hidden>
+        <td colspan="7">
+          <div class="hang-them-con">
+            <span class="thut">↳</span>
+            <input type="text" name="ct_ten" form="fcon-<?= $ct['id'] ?>"
+                   class="o-them-con-ten" placeholder="Tên nội dung con…" autocomplete="off">
+            <input type="text" name="ct_don_vi" form="fcon-<?= $ct['id'] ?>"
+                   class="o-them-con-dv" placeholder="Đơn vị" autocomplete="off">
+            <button class="nut nut-nho" type="submit" form="fcon-<?= $ct['id'] ?>">+ Thêm con</button>
+            <button type="button" class="nut-nang-cao" data-huy-con="<?= $ct['id'] ?>">Hủy</button>
+          </div>
+        </td>
+      </tr>
+      <?php endif; ?>
+    <?php return ob_get_clean();
+}
+
+function form_con(array $ct): string
+{
+    ob_start(); ?>
+    <form method="post" id="fcon-<?= (int)$ct['id'] ?>" class="an">
+      <?= csrf_field() ?>
+      <input type="hidden" name="viec" value="them_chi_tieu">
+      <input type="hidden" name="ct_cha" value="<?= (int)$ct['id'] ?>">
+    </form>
+    <?php return ob_get_clean();
+}
+
 $toi = bat_buoc_quyen('chitieu.giao');
 $duocThemCT = co_quyen('chitieu.them');
 $duocSuaCT  = co_quyen('chitieu.sua');
@@ -93,8 +213,99 @@ if (la_post()) {
         }
         // Vừa thêm thì đưa dòng mới lên đầu; tải lại trang thường (không có
         // ?moi) nó tự về đúng thứ tự.
+        // Gửi bằng AJAX thì trả về HTML dòng mới, không tải lại cả trang.
+        if (post('ajax') === '1') {
+            $tbs = lay_thong_bao();   // rút thông báo khỏi phiên để không đọng lại
+            header('Content-Type: application/json; charset=utf-8');
+            if (isset($idMoiCT)) {
+                $ctMoi = q1('SELECT * FROM chi_tieu WHERE id = ?', [$idMoiCT]);
+                $ctMoi['cap'] = $ctMoi['id_cha'] !== null ? 1 : 0;
+                echo json_encode([
+                    'ok'    => true,
+                    'row'   => dong_giao($ctMoi, null, $nam, $idKhoa, $duocSuaCT, $duocThemCT, true),
+                    'fcon'  => $ctMoi['cap'] === 0 ? form_con($ctMoi) : '',
+                    'chaId' => (int)($ctMoi['id_cha'] ?? 0),
+                    'id'    => (int)$idMoiCT,
+                    'ten'   => $ctMoi['ten'],
+                ], JSON_UNESCAPED_UNICODE);
+            } else {
+                $loiTb = '';
+                foreach ($tbs as $t) { if ($t['loai'] === 'loi') { $loiTb = $t['noi_dung']; } }
+                echo json_encode(['ok' => false, 'loi' => $loiTb ?: 'Không thêm được dòng.'],
+                    JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
         chuyen_huong("/giao-chi-tieu.php?nam=$nam&khoa=$idKhoa"
             . (isset($idMoiCT) ? "&moi=$idMoiCT" : '#ct-moi'));
+    }
+
+    /* ---------- Đổi vị trí lên/xuống (trong nhóm anh em cùng cha) ---------- */
+    if (post('viec') === 'chuyen' && $duocSuaCT) {
+        $id  = (int)post('id');
+        $len = post('huong') === 'len';
+        $ct  = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
+        if ($ct) {
+            $anhEm = array_values(array_filter(
+                chi_tieu_cua_khoa($idKhoa),
+                fn($c) => (string)$c['id_cha'] === (string)$ct['id_cha']));
+            $vt = null;
+            foreach ($anhEm as $k => $c) {
+                if ((int)$c['id'] === $id) { $vt = $k; break; }
+            }
+            $ke = $len ? ($vt ?? -1) - 1 : ($vt ?? -1) + 1;
+            if ($vt !== null && isset($anhEm[$ke])) {
+                $a = $anhEm[$vt]; $b = $anhEm[$ke];
+                $ta = (int)$a['thu_tu']; $tb = (int)$b['thu_tu'];
+                if ($ta === $tb) { $tb = $ta + ($len ? -1 : 1); }
+                q('UPDATE chi_tieu SET thu_tu = ? WHERE id = ?', [$tb, $a['id']]);
+                q('UPDATE chi_tieu SET thu_tu = ? WHERE id = ?', [$ta, $b['id']]);
+                ghi_nhat_ky('CHUYEN_CHI_TIEU', $a['ma'], $len ? 'lên' : 'xuống');
+            }
+        }
+        chuyen_huong("/giao-chi-tieu.php?nam=$nam&khoa=$idKhoa");
+    }
+
+    /* ---------- Sắp xếp lại bằng kéo-thả (nhận cả danh sách id theo thứ tự mới) ---------- */
+    if (post('viec') === 'sap_xep' && $duocSuaCT) {
+        $ids = array_values(array_filter(array_map('intval', explode(',', post('ids')))));
+        $tuGiaTri = [];   // tập giá trị thu_tu hiện có của các chỉ tiêu trong khoa
+        foreach (chi_tieu_cua_khoa($idKhoa) as $c) { $tuGiaTri[(int)$c['id']] = (int)$c['thu_tu']; }
+        $ids = array_values(array_filter($ids, fn($id) => isset($tuGiaTri[$id])));
+        $slot = array_values($tuGiaTri); sort($slot);   // giữ nguyên tập slot, chỉ đổi ai vào slot nào
+        if ($ids && count($ids) === count($slot)) {
+            db()->beginTransaction();
+            foreach ($ids as $k => $id) {
+                q('UPDATE chi_tieu SET thu_tu = ? WHERE id = ?', [$slot[$k], $id]);
+            }
+            db()->commit();
+            ghi_nhat_ky('SAP_XEP_CHI_TIEU', $khoa['ma'], count($ids) . ' dòng (kéo-thả)');
+        }
+        chuyen_huong("/giao-chi-tieu.php?nam=$nam&khoa=$idKhoa");
+    }
+
+    /* ---------- Xóa vĩnh viễn một chỉ tiêu (chỉ dev) ---------- */
+    if (post('viec') === 'xoa_ct') {
+        $id = (int)post('id');
+        $cu = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
+        if (!co_quyen('chitieu.xoa')) {
+            nhan_tin('loi', 'Chỉ người phát triển mới xóa vĩnh viễn được chỉ tiêu. '
+                . 'Vào Danh mục chỉ tiêu dùng "Ngừng dùng" thay thế.');
+        } elseif (!$cu) {
+            nhan_tin('loi', 'Không tìm thấy chỉ tiêu.');
+        } elseif (la_he_thong($cu['ma'])) {
+            nhan_tin('loi', "\"{$cu['ma']}\" là chỉ tiêu hệ thống, không xóa được.");
+        } elseif (($n = chi_tieu_co_du_lieu($id)) > 0) {
+            nhan_tin('loi', "Chỉ tiêu này đã có $n dòng số liệu/kế hoạch nên không xóa được. "
+                . 'Dùng "Ngừng dùng" ở Danh mục chỉ tiêu.');
+        } elseif (qVal('SELECT 1 FROM chi_tieu WHERE id_cha = ?', [$id])) {
+            nhan_tin('loi', 'Còn nội dung con bên trong. Xóa các nội dung con trước.');
+        } else {
+            q('DELETE FROM chi_tieu WHERE id = ?', [$id]);
+            ghi_nhat_ky('XOA_CHI_TIEU', $cu['ma'], "{$cu['ten']} (từ bảng Giao chỉ tiêu)");
+            nhan_tin('ok', "Đã xóa chỉ tiêu \"{$cu['ten']}\".");
+        }
+        chuyen_huong("/giao-chi-tieu.php?nam=$nam&khoa=$idKhoa");
     }
 
     /* ---------- Tính cột năng lực từ số giường bệnh ---------- */
@@ -215,13 +426,16 @@ $moiId = (int)($_GET['moi'] ?? 0);
 if ($moiId) {
     foreach ($dsCT as $i => $c) {
         if ((int)$c['id'] === $moiId) {
-            $ctMoi = $c;
-            unset($dsCT[$i]);
-            array_unshift($dsCT, $ctMoi);
+            // Chỉ đẩy ĐẦU MỤC lên đầu cho dễ thấy. Nội dung con giữ nguyên dưới
+            // cha — đẩy lên đầu sẽ tách con khỏi cha, sai thứ bậc.
+            if ((int)($c['cap'] ?? 0) === 0) {
+                unset($dsCT[$i]);
+                array_unshift($dsCT, $c);
+                $dsCT = array_values($dsCT);
+            }
             break;
         }
     }
-    $dsCT = array_values($dsCT);
 }
 
 mo_trang('Giao chỉ tiêu');
@@ -287,47 +501,69 @@ mo_trang('Giao chỉ tiêu');
 
 <?php if ($duocThemCT):
     $ndLon = array_values(array_filter($dsCT, fn($c) => $c['cap'] === 0)); ?>
-<div class="the-them-ct">
-  <div class="the-them-ct-dau">+ Thêm chỉ tiêu cho khoa này</div>
-  <div class="them-ct-hang">
-    <input type="text" name="ct_ten" form="them-ct" id="o-ct-ten" class="o-ten-moi"
-           placeholder="Nhập nội dung chỉ tiêu mới…" autocomplete="off">
-    <input type="text" name="ct_don_vi" form="them-ct" class="o-dv-moi"
-           placeholder="Đơn vị" autocomplete="off">
-    <select name="ct_cha" form="them-ct" class="o-cha-moi">
-      <option value="">— Là nội dung lớn —</option>
-      <?php foreach ($ndLon as $c): ?>
-        <option value="<?= (int)$c['id'] ?>">↳ nằm trong: <?= e($c['ten']) ?></option>
-      <?php endforeach; ?>
-    </select>
-    <button class="nut nut-nho nut-chinh" type="submit" form="them-ct">+ Thêm dòng</button>
-    <button type="button" class="nut-nang-cao" onclick="hienNangCao()">Tùy chọn khác</button>
+<!-- Nút nổi ở góc màn hình: bấm mở popup thêm chỉ tiêu, khỏi cuộn lên đầu -->
+<button type="button" class="nut-noi" data-mo="modal-them-ct" title="Thêm chỉ tiêu">
+  <span class="nut-noi-cong" aria-hidden="true">+</span><span class="nut-noi-chu">Thêm chỉ tiêu</span>
+</button>
+<div class="lop-phu" id="modal-them-ct" hidden>
+ <div class="hop-modal" role="dialog" aria-modal="true" aria-label="Thêm chỉ tiêu">
+  <div class="modal-dau">
+    <h2>Thêm chỉ tiêu cho khoa</h2>
+    <button type="button" class="dong-tro-giup" aria-label="Đóng">&times;</button>
   </div>
-  <div class="luoi-nang-cao" id="dong-nang-cao" hidden>
-    <label>Mã chỉ tiêu
-      <input type="text" name="ct_ma" form="them-ct" placeholder="tự sinh từ nội dung">
-    </label>
-    <label>Loại giá trị
-      <select name="ct_loai" form="them-ct">
-        <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO'] as $v): ?>
-          <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label>Cách đánh giá
-      <select name="ct_huong" form="them-ct">
-        <?php foreach (['CAO_TOT','THAP_TOT','DICH_CO_DINH'] as $v): ?>
-          <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <label>Phân bổ ra tháng
-      <select name="ct_phan_bo" form="them-ct">
-        <option value="THEO_NGAY"><?= e(NHAN['THEO_NGAY']) ?></option>
-        <option value="KHONG_CHIA"><?= e(NHAN['KHONG_CHIA']) ?></option>
-      </select>
-    </label>
+  <div class="modal-than">
+    <div class="luoi-truong">
+      <label class="o-rong-2">Nội dung chỉ tiêu
+        <input type="text" name="ct_ten" form="them-ct" id="o-ct-ten"
+               placeholder="VD: Tổng số lượt tiêm chủng" autocomplete="off">
+      </label>
+      <label>Đơn vị
+        <input type="text" name="ct_don_vi" form="them-ct" placeholder="Lượt / Ca / %…" autocomplete="off">
+      </label>
+      <label>Thuộc nhóm
+        <select name="ct_cha" form="them-ct">
+          <option value="">— Là nội dung lớn —</option>
+          <?php foreach ($ndLon as $c): ?>
+            <option value="<?= (int)$c['id'] ?>">↳ nằm trong: <?= e($c['ten']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+    </div>
+    <p class="hang-nang-cao">
+      <button type="button" class="nut-nang-cao" onclick="hienNangCao()">Tùy chọn khác ▾</button>
+    </p>
+    <div class="luoi-truong" id="dong-nang-cao" hidden>
+      <label>Mã chỉ tiêu
+        <input type="text" name="ct_ma" form="them-ct" placeholder="tự sinh từ nội dung">
+      </label>
+      <label>Loại giá trị
+        <select name="ct_loai" form="them-ct">
+          <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO'] as $v): ?>
+            <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label>Cách đánh giá
+        <select name="ct_huong" form="them-ct">
+          <?php foreach (['CAO_TOT','THAP_TOT','DICH_CO_DINH'] as $v): ?>
+            <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label>Phân bổ ra tháng
+        <select name="ct_phan_bo" form="them-ct">
+          <option value="THEO_NGAY"><?= e(NHAN['THEO_NGAY']) ?></option>
+          <option value="KHONG_CHIA"><?= e(NHAN['KHONG_CHIA']) ?></option>
+        </select>
+      </label>
+    </div>
+    <p class="them-ct-ket" id="them-ct-ket" hidden></p>
+    <div class="form-chan">
+      <button class="nut nut-chinh" type="submit" form="them-ct">+ Thêm dòng</button>
+      <button type="button" class="nut nut-phu" data-dong>Đóng</button>
+    </div>
   </div>
+ </div>
 </div>
 <?php endif; ?>
 
@@ -349,94 +585,9 @@ mo_trang('Giao chỉ tiêu');
     </thead>
     <tbody>
     <?php foreach ($dsCT as $ct):
-        $r = $kh[$ct['id']] ?? null;
-        $tuTinh = $ct['nguon'] !== 'NHAP_TAY'; ?>
-      <?php $laMoi = (int)$ct['id'] === $moiId; ?>
-      <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?><?= $laMoi ? ' vua-them' : '' ?>"
-          <?= $laMoi ? 'id="dong-moi"' : '' ?>>
-        <td>
-          <div class="o-ten-ct">
-            <?= $ct['cap'] ? '<span class="thut">↳</span>' : '' ?>
-            <?php if ($duocSuaCT): ?>
-              <input type="text" name="ct_ten[<?= $ct['id'] ?>]" class="o-sua-ten"
-                     value="<?= e($ct['ten']) ?>" title="Sửa trực tiếp rồi bấm Lưu chỉ tiêu">
-            <?php else: ?>
-              <span><?= e($ct['ten']) ?></span>
-            <?php endif; ?>
-            <?php if ($laMoi): ?><span class="the the-nho the-moi">vừa thêm</span><?php endif; ?>
-            <?php if ($ct['huong'] === 'THAP_TOT'): ?>
-              <span class="the the-nho">thấp là tốt</span>
-            <?php elseif ($ct['huong'] === 'DICH_CO_DINH'): ?>
-              <span class="the the-nho">đích 100%</span>
-            <?php endif; ?>
-            <?php if ($ct['cap'] === 0 && $duocThemCT): ?>
-              <button type="button" class="them-con-nut" data-cha="<?= $ct['id'] ?>"
-                      title="Thêm nội dung con vào mục này">＋ con</button>
-            <?php endif; ?>
-          </div>
-        </td>
-        <td class="nho">
-          <?php if ($duocSuaCT): ?>
-            <input type="text" name="ct_don_vi[<?= $ct['id'] ?>]" class="o-sua-don-vi"
-                   value="<?= e($ct['don_vi']) ?>">
-          <?php else: ?>
-            <?= e($ct['don_vi']) ?>
-          <?php endif; ?>
-        </td>
-        <td><input type="text" inputmode="decimal" name="giao[<?= $ct['id'] ?>]"
-                   value="<?= $r && $r['chi_tieu_giao'] !== null ? e(so_o_nhap($r['chi_tieu_giao'])) : '' ?>"
-                   class="o-so"></td>
-        <td>
-          <!-- Gợi ý nằm CẠNH ô nhập, không nằm dưới: xuống dòng thì dòng bảng
-               cao hơn các dòng khác và cả bảng nhấp nhô. -->
-          <div class="o-kem-goi-y">
-            <input type="text" inputmode="decimal" name="nang_luc[<?= $ct['id'] ?>]"
-                   value="<?= $r && $r['chi_tieu_nang_luc'] !== null ? e(so_o_nhap($r['chi_tieu_nang_luc'])) : '' ?>"
-                   class="o-so o-phu">
-            <?php $goiY = nang_luc_theo_giuong_benh($nam, $idKhoa, $ct['ma']);
-            if ($goiY !== null): ?>
-              <span class="goi-y">tính được: <?= so($goiY, 2) ?></span>
-            <?php endif; ?>
-          </div>
-        </td>
-        <td class="phai nho">
-          <?php
-          $giaoV = $r && $r['chi_tieu_giao'] !== null ? (float)$r['chi_tieu_giao'] : null;
-          $nlV   = $r && $r['chi_tieu_nang_luc'] !== null ? (float)$r['chi_tieu_nang_luc'] : null;
-          if ($giaoV !== null && $nlV !== null && $nlV > 0):
-              $ty = $giaoV / $nlV * 100;
-              // Dưới 80% năng lực nghĩa là chỉ tiêu giao còn rộng so với số giường
-              $lop = $ty < 80 ? 'ty-thap' : ($ty > 105 ? 'ty-cao' : 'ty-vua'); ?>
-            <span class="<?= $lop ?>"><?= phan_tram($ty) ?></span>
-          <?php else: ?>
-            <span class="phu">—</span>
-          <?php endif; ?>
-        </td>
-        <td><input type="text" inputmode="decimal" name="nam_truoc[<?= $ct['id'] ?>]"
-                   value="<?= $r && $r['th_nam_truoc'] !== null ? e(so_o_nhap($r['th_nam_truoc'])) : '' ?>"
-                   class="o-so o-phu"></td>
-        <td class="nho mot-dong">
-          <?= $ct['phan_bo'] === 'THEO_NGAY'
-              ? 'chia theo số ngày'
-              : '<strong>giữ nguyên mọi tháng</strong>' ?>
-        </td>
-      </tr>
-      <?php if ($ct['cap'] === 0 && $duocThemCT): ?>
-      <tr class="dong-them-con" id="them-con-<?= $ct['id'] ?>" hidden>
-        <td colspan="7">
-          <div class="hang-them-con">
-            <span class="thut">↳</span>
-            <input type="text" name="ct_ten" form="fcon-<?= $ct['id'] ?>"
-                   class="o-them-con-ten" placeholder="Tên nội dung con…" autocomplete="off">
-            <input type="text" name="ct_don_vi" form="fcon-<?= $ct['id'] ?>"
-                   class="o-them-con-dv" placeholder="Đơn vị" autocomplete="off">
-            <button class="nut nut-nho" type="submit" form="fcon-<?= $ct['id'] ?>">+ Thêm con</button>
-            <button type="button" class="nut-nang-cao" data-huy-con="<?= $ct['id'] ?>">Hủy</button>
-          </div>
-        </td>
-      </tr>
-      <?php endif; ?>
-    <?php endforeach; ?>
+        echo dong_giao($ct, $kh[$ct['id']] ?? null, $nam, $idKhoa,
+            $duocSuaCT, $duocThemCT, (int)$ct['id'] === $moiId);
+    endforeach; ?>
 
     </tbody>
   </table>
@@ -447,13 +598,9 @@ mo_trang('Giao chỉ tiêu');
 <?php if ($duocThemCT): ?>
   <!-- Mỗi nội dung lớn một biểu mẫu ẩn để nút "+ con" gửi thẳng, không lồng
        biểu mẫu vào biểu mẫu "luu" của bảng. -->
-  <?php foreach ($dsCT as $c): if ($c['cap'] !== 0) continue; ?>
-    <form method="post" id="fcon-<?= $c['id'] ?>" class="an">
-      <?= csrf_field() ?>
-      <input type="hidden" name="viec" value="them_chi_tieu">
-      <input type="hidden" name="ct_cha" value="<?= $c['id'] ?>">
-    </form>
-  <?php endforeach; ?>
+  <div id="fcon-forms">
+  <?php foreach ($dsCT as $c): if ($c['cap'] === 0) { echo form_con($c); } endforeach; ?>
+  </div>
 <?php endif; ?>
 
 <?php if ($duocThemCT): ?>
@@ -461,7 +608,160 @@ mo_trang('Giao chỉ tiêu');
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="them_chi_tieu">
 </form>
+<form method="post" id="f-chuyen" class="an">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="chuyen">
+  <input type="hidden" name="id" id="chuyen-id">
+  <input type="hidden" name="huong" id="chuyen-huong">
+</form>
+<form method="post" id="f-xoa-ct" class="an">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="xoa_ct">
+  <input type="hidden" name="id" id="xoa-ct-id">
+</form>
+<form method="post" id="f-sapxep" class="an">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="sap_xep">
+  <input type="hidden" name="ids" id="sapxep-ids">
+</form>
 <script>
+/* Thêm chỉ tiêu bằng AJAX: chèn thẳng dòng mới, KHÔNG tải lại cả trang
+   (giữ nguyên các ô đang gõ dở, không giật, không mất vị trí cuộn). */
+(function () {
+  function chenDong(d) {
+    var tbody = document.querySelector('table.bang-nhap tbody');
+    tbody.querySelectorAll('.vua-them').forEach(function (x) { x.classList.remove('vua-them'); });
+    var cu = document.getElementById('dong-moi'); if (cu) { cu.removeAttribute('id'); }
+    var tmp = document.createElement('tbody'); tmp.innerHTML = d.row.trim();
+    var moi = Array.prototype.slice.call(tmp.children);
+    var neo = d.chaId ? document.getElementById('them-con-' + d.chaId) : null;
+    moi.forEach(function (r) { tbody.insertBefore(r, neo); });
+    if (d.fcon) { document.getElementById('fcon-forms').insertAdjacentHTML('beforeend', d.fcon); }
+    if (!d.chaId) {
+      document.querySelectorAll('select[name="ct_cha"]').forEach(function (s) {
+        var o = document.createElement('option'); o.value = d.id;
+        o.textContent = '↳ nằm trong: ' + d.ten; s.appendChild(o);
+      });
+    }
+    var dm = tbody.querySelector('.vua-them');
+    if (dm) { dm.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  }
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.id !== 'them-ct' && f.id.indexOf('fcon-') !== 0) { return; }
+    e.preventDefault();
+    var fd = new FormData(f); fd.append('ajax', '1');
+    var cha = f.id.indexOf('fcon-') === 0 ? f.id.slice(5) : null;
+    fetch(location.pathname + location.search, { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { alert(d.loi || 'Không thêm được dòng.'); return; }
+        chenDong(d);
+        if (cha) {
+          var row = document.getElementById('them-con-' + cha);
+          if (row) {
+            row.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+            var o1 = row.querySelector('input'); if (o1) { o1.focus(); }
+          }
+        } else {
+          // Giữ popup mở để thêm tiếp; xóa ô, báo đã thêm, đưa con trỏ về ô nội dung
+          var box = document.getElementById('modal-them-ct');
+          if (box) {
+            box.querySelectorAll('input[type=text]').forEach(function (i) { i.value = ''; });
+            var sel = box.querySelector('select[name="ct_cha"]'); if (sel) { sel.value = ''; }
+            var note = document.getElementById('them-ct-ket');
+            if (note) { note.textContent = '✓ Đã thêm: ' + d.ten; note.hidden = false; }
+            var o2 = document.getElementById('o-ct-ten'); if (o2) { o2.focus(); }
+          }
+        }
+      })
+      .catch(function () { f.submit(); });   // lỗi mạng → quay về cách cũ (tải lại)
+  });
+  // Mở popup thêm: đưa con trỏ vào ô nội dung, xóa dòng "đã thêm" cũ
+  var fab = document.querySelector('.nut-noi');
+  if (fab) {
+    fab.addEventListener('click', function () {
+      var note = document.getElementById('them-ct-ket'); if (note) { note.hidden = true; }
+      setTimeout(function () { var o = document.getElementById('o-ct-ten'); if (o) { o.focus(); } }, 60);
+    });
+  }
+})();
+
+/* Kéo-thả đổi vị trí chỉ tiêu (như kéo thư mục). Kéo cha thì kéo theo cả cụm
+   con; kéo con chỉ trong nhóm anh em cùng cha. */
+(function () {
+  var tbody = document.querySelector('table.bang-nhap tbody');
+  var form = document.getElementById('f-sapxep');
+  if (!tbody || !form) { return; }
+  var keo = null, khoi = [];
+
+  function laCon(tr) { return tr.classList.contains('dong-con'); }
+  function khoiCua(tr) {
+    var a = [tr];
+    if (!laCon(tr)) {
+      var n = tr.nextElementSibling;
+      while (n && (laCon(n) || n.classList.contains('dong-them-con'))) {
+        a.push(n); n = n.nextElementSibling;
+      }
+    }
+    return a;
+  }
+  function xoaVach() {
+    tbody.querySelectorAll('.keo-tren,.keo-duoi').forEach(function (r) {
+      r.classList.remove('keo-tren', 'keo-duoi');
+    });
+  }
+  function hopLeTha(tr) {
+    return laCon(keo) ? (laCon(tr) && tr.dataset.cha === keo.dataset.cha) : !laCon(tr);
+  }
+
+  tbody.addEventListener('dragstart', function (e) {
+    var h = e.target.closest('.ct-keo');
+    if (!h) { e.preventDefault(); return; }
+    keo = h.closest('tr'); khoi = khoiCua(keo);
+    e.dataTransfer.effectAllowed = 'move';
+    try { e.dataTransfer.setData('text/plain', keo.dataset.id); } catch (x) {}
+    setTimeout(function () { khoi.forEach(function (r) { r.classList.add('dang-keo'); }); }, 0);
+  });
+  tbody.addEventListener('dragend', function () {
+    khoi.forEach(function (r) { r.classList.remove('dang-keo'); });
+    xoaVach(); keo = null; khoi = [];
+  });
+  tbody.addEventListener('dragover', function (e) {
+    if (!keo) { return; }
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr || khoi.indexOf(tr) >= 0 || !hopLeTha(tr)) { return; }
+    e.preventDefault();
+    var tren = e.clientY < tr.getBoundingClientRect().top + tr.offsetHeight / 2;
+    xoaVach(); tr.classList.add(tren ? 'keo-tren' : 'keo-duoi');
+  });
+  tbody.addEventListener('drop', function (e) {
+    if (!keo) { return; }
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr || khoi.indexOf(tr) >= 0 || !hopLeTha(tr)) { return; }
+    e.preventDefault();
+    var tren = e.clientY < tr.getBoundingClientRect().top + tr.offsetHeight / 2;
+    var moc = tren ? tr : (function () { var k = khoiCua(tr); return k[k.length - 1].nextElementSibling; })();
+    khoi.forEach(function (r) { tbody.insertBefore(r, moc); });
+    xoaVach();
+    var ids = Array.prototype.map.call(tbody.querySelectorAll('tr[data-id]'),
+      function (r) { return r.dataset.id; });
+    document.getElementById('sapxep-ids').value = ids.join(',');
+    form.submit();
+  });
+})();
+
+function chuyenCT(id, huong) {
+  document.getElementById('chuyen-id').value = id;
+  document.getElementById('chuyen-huong').value = huong;
+  document.getElementById('f-chuyen').submit();
+}
+function xoaCT(id) {
+  if (confirm('Xóa chỉ tiêu này? Thao tác không hoàn tác được.')) {
+    document.getElementById('xoa-ct-id').value = id;
+    document.getElementById('f-xoa-ct').submit();
+  }
+}
 function hienNangCao() {
   var d = document.getElementById('dong-nang-cao');
   d.hidden = !d.hidden;
