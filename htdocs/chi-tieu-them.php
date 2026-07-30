@@ -265,9 +265,10 @@ mo_trang('Thêm chỉ tiêu');
     </div>
 
     <div class="luoi-truong">
-      <label>Mã chỉ tiêu <small class="nhan-phu">(để trống sẽ tự sinh)</small>
+      <label>Mã chỉ tiêu
         <input type="text" name="ma" value="<?= e(post('ma')) ?>"
                placeholder="Để trống — tự tạo từ nội dung">
+        <small class="nhan-phu">Để trống sẽ tự sinh từ nội dung</small>
       </label>
       <label>Nội dung
         <input type="text" name="ten" value="<?= e(post('ten')) ?>"

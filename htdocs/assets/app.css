@@ -2116,7 +2116,7 @@ body.dang-keo-cot .cot-keo::after { background: var(--xanh-500); }
 .the-them-ct .luoi-nang-cao { margin-top: 12px; }
 
 /* Nhãn phụ nhỏ cạnh tên trường */
-.nhan-phu { font-weight: 400; color: var(--chu-3, #64748b); font-size: 12px; }
+.nhan-phu { display: block; margin-top: 4px; font-weight: 400; color: var(--chu-3, #64748b); font-size: 12px; }
 
 /* ---- Nút thao tác chỉ tiêu trong bảng Giao chỉ tiêu (▲▼✕) ---- */
 .ct-thaotac { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: middle;
@@ -2169,6 +2169,8 @@ tr.keo-duoi td { box-shadow: inset 0 -2px 0 var(--xanh-500, #0ea5e9); }
 }
 .nut-noi:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(2, 132, 199, .55); }
 .nut-noi:active { transform: translateY(0); }
+/* Ẩn nút nổi khi có popup đang mở (khỏi lộ sau nền tối) */
+body:has(.lop-phu:not([hidden])) .nut-noi { opacity: 0; pointer-events: none; }
 .nut-noi-cong { font-size: 21px; font-weight: 700; line-height: 1; }
 .hang-nang-cao { margin: 10px 0 4px; }
 .them-ct-ket {

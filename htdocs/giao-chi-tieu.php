@@ -461,44 +461,6 @@ mo_trang('Giao chỉ tiêu');
   </label>
 </form>
 
-<?php if (!$dsCT): ?>
-  <div class="tb tb-canh-bao">
-    Khoa này chưa được gán chỉ tiêu nào. Vào <a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a>
-    để nạp danh mục mặc định trước.
-  </div>
-<?php else: ?>
-
-<form method="post" class="hang-nut">
-  <?= csrf_field() ?>
-  <input type="hidden" name="viec" value="tinh_nang_luc">
-  <button class="nut nut-phu" type="submit">Tính cột năng lực theo giường bệnh</button>
-  <?php mo_tro_giup('tg-cot-chi-tieu', 'Hai cột chỉ tiêu khác nhau thế nào'); ?>
-    <p>
-      <strong>Cột "Chỉ tiêu giao <?= $nam ?>"</strong> — điền đúng con số ở cột
-      <em>Chỉ tiêu giao năm <?= $nam ?></em> trong file Excel. Đây là mẫu số của cột
-      <em>SO KH(%)</em> trong báo cáo cũ, nên điền sai là phần trăm lệch hẳn so với
-      báo cáo đã gửi Sở.
-    </p>
-    <p>
-      <strong>Cột "Theo năng lực giường bệnh"</strong> — trần lý thuyết khi giường chạy hết
-      công suất cả năm. Bấm nút <em>Tính cột năng lực theo giường bệnh</em>, không cần gõ tay:
-    </p>
-    <ul class="cong-thuc">
-      <li>Tổng số ngày điều trị = Giường bệnh × <?= so_ngay_trong_nam($nam) ?> ngày</li>
-      <li>Tổng số BN nội trú = Giường bệnh × <?= so_ngay_trong_nam($nam) ?> ÷ Ngày điều trị TB</li>
-      <li>Công suất giường bệnh = 100%</li>
-    </ul>
-    <p>
-      Đây đúng là cách Sở tính: QĐ 74/QĐ-SYT giao toàn viện 13.079 bệnh nhân nội trú,
-      bằng 215 giường × 365 ÷ 6 ngày.
-    </p>
-    <p class="phu">
-      Cột <em>Giao/Năng lực</em> cho biết chỉ tiêu giao đã sát năng lực chưa.
-      Dưới 80% nghĩa là còn dư giường.
-    </p>
-  <?php dong_tro_giup(); ?>
-</form>
-
 <?php if ($duocThemCT):
     $ndLon = array_values(array_filter($dsCT, fn($c) => $c['cap'] === 0)); ?>
 <!-- Nút nổi ở góc màn hình: bấm mở popup thêm chỉ tiêu, khỏi cuộn lên đầu -->
@@ -567,6 +529,45 @@ mo_trang('Giao chỉ tiêu');
 </div>
 <?php endif; ?>
 
+<?php if (!$dsCT): ?>
+  <div class="tb tb-canh-bao">
+    Khoa này chưa có chỉ tiêu. Bấm nút <strong>➕ Thêm chỉ tiêu</strong> ở góc phải để thêm từng dòng,
+    hoặc vào <a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> nạp bộ mặc định.
+  </div>
+<?php else: ?>
+
+<form method="post" class="hang-nut">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="tinh_nang_luc">
+  <button class="nut nut-phu" type="submit">Tính cột năng lực theo giường bệnh</button>
+  <?php mo_tro_giup('tg-cot-chi-tieu', 'Hai cột chỉ tiêu khác nhau thế nào'); ?>
+    <p>
+      <strong>Cột "Chỉ tiêu giao <?= $nam ?>"</strong> — điền đúng con số ở cột
+      <em>Chỉ tiêu giao năm <?= $nam ?></em> trong file Excel. Đây là mẫu số của cột
+      <em>SO KH(%)</em> trong báo cáo cũ, nên điền sai là phần trăm lệch hẳn so với
+      báo cáo đã gửi Sở.
+    </p>
+    <p>
+      <strong>Cột "Theo năng lực giường bệnh"</strong> — trần lý thuyết khi giường chạy hết
+      công suất cả năm. Bấm nút <em>Tính cột năng lực theo giường bệnh</em>, không cần gõ tay:
+    </p>
+    <ul class="cong-thuc">
+      <li>Tổng số ngày điều trị = Giường bệnh × <?= so_ngay_trong_nam($nam) ?> ngày</li>
+      <li>Tổng số BN nội trú = Giường bệnh × <?= so_ngay_trong_nam($nam) ?> ÷ Ngày điều trị TB</li>
+      <li>Công suất giường bệnh = 100%</li>
+    </ul>
+    <p>
+      Đây đúng là cách Sở tính: QĐ 74/QĐ-SYT giao toàn viện 13.079 bệnh nhân nội trú,
+      bằng 215 giường × 365 ÷ 6 ngày.
+    </p>
+    <p class="phu">
+      Cột <em>Giao/Năng lực</em> cho biết chỉ tiêu giao đã sát năng lực chưa.
+      Dưới 80% nghĩa là còn dư giường.
+    </p>
+  <?php dong_tro_giup(); ?>
+</form>
+
+
 <form method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="luu">
@@ -630,6 +631,7 @@ mo_trang('Giao chỉ tiêu');
 (function () {
   function chenDong(d) {
     var tbody = document.querySelector('table.bang-nhap tbody');
+    if (!tbody) { location.reload(); return; }   // khoa đang trống, chưa có bảng → tải lại để hiện
     tbody.querySelectorAll('.vua-them').forEach(function (x) { x.classList.remove('vua-them'); });
     var cu = document.getElementById('dong-moi'); if (cu) { cu.removeAttribute('id'); }
     var tmp = document.createElement('tbody'); tmp.innerHTML = d.row.trim();

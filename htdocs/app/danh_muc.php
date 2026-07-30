@@ -62,7 +62,7 @@ function chi_tieu_co_du_lieu(int $id): int
  * "Tổng số lượt tiêm chủng" -> "TONG_SO_LUOT_TIEM_CHUNG"
  * Trùng thì thêm số đằng sau.
  */
-function ma_tu_ten(string $ten): string
+function chuoi_thanh_ma(string $ten, string $macDinh = 'MA', int $toiDa = 26): string
 {
     static $co = 'àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡ'
         . 'ùúụủũưừứựửữỳýỵỷỹđ';
@@ -79,13 +79,28 @@ function ma_tu_ten(string $ten): string
     $s = preg_replace('/[^A-Z0-9]+/', '_', $s);
     $s = trim((string)$s, '_');
     if ($s === '') {
-        $s = 'CT';
+        $s = $macDinh;
     }
-    $s = substr($s, 0, 26);
+    return substr($s, 0, $toiDa);
+}
 
-    $goc = $s; $i = 1;
+function ma_tu_ten(string $ten): string
+{
+    $goc = chuoi_thanh_ma($ten, 'CT', 26);
+    $s = $goc; $i = 1;
     while (qVal('SELECT 1 FROM chi_tieu WHERE ma = ?', [$s])) {
         $s = substr($goc, 0, 26) . '_' . (++$i);
+    }
+    return $s;
+}
+
+/** Sinh mã khoa duy nhất từ tên (dùng khi để trống ô mã khoa). */
+function ma_khoa_tu_ten(string $ten): string
+{
+    $goc = chuoi_thanh_ma($ten, 'KHOA', 20);
+    $s = $goc; $i = 1;
+    while (qVal('SELECT 1 FROM khoa WHERE ma = ?', [$s])) {
+        $s = substr($goc, 0, 17) . '_' . (++$i);
     }
     return $s;
 }

@@ -7,6 +7,7 @@
  */
 require_once __DIR__ . '/app/layout.php';
 require_once __DIR__ . '/app/chi_tieu.php';
+require_once __DIR__ . '/app/danh_muc.php';
 
 $toi = bat_buoc_quyen('khoa.xem');
 $duocSua = co_quyen('khoa.sua');
@@ -35,15 +36,16 @@ if (la_post()) {
         $loai = post('loai', 'NOI_TRU');
         $gb  = (int)post('giuong_benh', '0');
 
-        if (!preg_match('/^[A-Z0-9_]{2,20}$/', $ma)) {
-            nhan_tin('loi', 'Mã khoa chỉ gồm chữ in hoa, số và gạch dưới, dài 2–20 ký tự.');
-        } elseif ($ten === '') {
+        if ($ten === '') {
             nhan_tin('loi', 'Vui lòng nhập tên khoa.');
+        } elseif ($ma !== '' && !preg_match('/^[A-Z0-9_]{2,20}$/', $ma)) {
+            nhan_tin('loi', 'Mã khoa chỉ gồm chữ in hoa, số và gạch dưới, dài 2–20 ký tự.');
         } elseif (!isset(LOAI_KHOA[$loai])) {
             nhan_tin('loi', 'Loại khoa không hợp lệ.');
-        } elseif (qVal('SELECT 1 FROM khoa WHERE ma = ?', [$ma])) {
+        } elseif ($ma !== '' && qVal('SELECT 1 FROM khoa WHERE ma = ?', [$ma])) {
             nhan_tin('loi', "Mã khoa \"$ma\" đã tồn tại.");
         } else {
+            if ($ma === '') { $ma = ma_khoa_tu_ten($ten); }
             $thuTu = (int)qVal('SELECT COALESCE(MAX(thu_tu),0) FROM khoa') + 1;
             db()->beginTransaction();
             q('INSERT INTO khoa (ma, ten, loai, giuong_benh, thu_tu) VALUES (?,?,?,?,?)',
@@ -244,34 +246,48 @@ mo_trang('Danh mục khoa');
 </div>
 
 <?php if (co_quyen('khoa.them')): ?>
-<h2>Thêm khoa</h2>
-<form method="post" class="bieu-mau-ngang">
-  <?= csrf_field() ?>
-  <input type="hidden" name="viec" value="them">
-  <label>Mã khoa
-    <input type="text" name="ma" placeholder="VD: RHM" required>
-    <small>Chữ in hoa, số, gạch dưới. Dùng để đối chiếu, sau này không nên đổi.</small>
-  </label>
-  <label>Tên khoa
-    <input type="text" name="ten" placeholder="Khoa Răng Hàm Mặt" required>
-  </label>
-  <label>Loại
-    <select name="loai">
-      <?php foreach (LOAI_KHOA as $ma => $ten): ?>
-        <option value="<?= $ma ?>"><?= e($ten) ?></option>
-      <?php endforeach; ?>
-    </select>
-  </label>
-  <label>Giường bệnh kế hoạch
-    <input type="text" inputmode="numeric" name="giuong_benh" value="0">
-    <small>Chỉ dùng cho khoa nội trú.</small>
-  </label>
-  <button class="nut nut-chinh" type="submit">Thêm khoa</button>
-  <p class="phu">
-    Khoa mới sẽ được gán sẵn bộ chỉ tiêu giống một khoa cùng loại đang có,
-    để khỏi phải tick tay từng dòng. Sau đó vào
-    <a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> chỉnh lại cho đúng.
-  </p>
-</form>
+<!-- Nút nổi góc màn hình: bấm mở popup thêm khoa -->
+<button type="button" class="nut-noi" data-mo="modal-them-khoa" title="Thêm khoa">
+  <span class="nut-noi-cong" aria-hidden="true">+</span><span class="nut-noi-chu">Thêm khoa</span>
+</button>
+<div class="lop-phu" id="modal-them-khoa" hidden>
+ <div class="hop-modal" role="dialog" aria-modal="true" aria-label="Thêm khoa">
+  <div class="modal-dau">
+    <h2>Thêm khoa</h2>
+    <button type="button" class="dong-tro-giup" aria-label="Đóng">&times;</button>
+  </div>
+  <div class="modal-than">
+    <form method="post" class="form-tai-khoan">
+      <?= csrf_field() ?>
+      <input type="hidden" name="viec" value="them">
+      <div class="luoi-truong">
+        <label>Mã khoa
+          <input type="text" name="ma" placeholder="Để trống — tự tạo từ tên">
+          <small class="nhan-phu">Để trống sẽ tự sinh từ tên</small></label>
+        <label>Loại
+          <select name="loai">
+            <?php foreach (LOAI_KHOA as $ma => $ten): ?>
+              <option value="<?= $ma ?>"><?= e($ten) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <label class="o-rong-2">Tên khoa
+          <input type="text" name="ten" placeholder="Khoa Răng Hàm Mặt" required></label>
+        <label>Giường bệnh kế hoạch
+          <input type="text" inputmode="numeric" name="giuong_benh" value="0"></label>
+      </div>
+      <p class="phu" style="margin:8px 0 0">
+        Mã: chữ in hoa, số, gạch dưới — sau này không nên đổi. Giường bệnh chỉ dùng cho khoa nội trú.
+        Khoa mới được gán sẵn bộ chỉ tiêu giống một khoa cùng loại; sau đó vào
+        <a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> chỉnh lại cho đúng.
+      </p>
+      <div class="form-chan">
+        <button class="nut nut-chinh" type="submit">Thêm khoa</button>
+        <button type="button" class="nut nut-phu" data-dong>Đóng</button>
+      </div>
+    </form>
+  </div>
+ </div>
+</div>
 <?php endif; ?>
 <?php dong_trang();
