@@ -82,19 +82,33 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
     }
 
     $ds = [];
-    foreach (tat_ca_chi_tieu() as $ct) {
-        if (!isset($dungO[$ct['id']])) {
+    foreach (cay_tat_ca() as $ct) {   // theo thứ tự cây, $ct['cap'] là độ sâu thật
+        // Biến thể "gộp vào" không hiện dòng riêng — số liệu đã cộng vào chỉ tiêu chuẩn.
+        if (!empty($ct['gop_vao'])) {
             continue;
         }
-        $ct['cap'] = $ct['id_cha'] === null ? 0 : 1;
 
-        // Chọn phạm vi khoa để cộng
-        $khoaCong = $dungO[$ct['id']];
-        if (isset(CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ct['ma']])) {
+        $dacBiet = isset(CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ct['ma']]);
+        // Nhóm id cần cộng: chỉ tiêu này + các biến thể gộp vào nó
+        // (chỉ tiêu đặc biệt chống đếm trùng và công thức thì không gộp).
+        $idsCong = ($dacBiet || $ct['nguon'] === 'CONG_THUC')
+            ? [(int)$ct['id']] : ids_gop_vao($ct['ma']);
+
+        // Khoa dùng bất kỳ id nào trong nhóm
+        $khoaSet = [];
+        foreach ($idsCong as $idCT) {
+            foreach ($dungO[$idCT] ?? [] as $idK) { $khoaSet[$idK] = true; }
+        }
+        if (!$khoaSet) {
+            continue;   // cả nhóm không khoa nào dùng
+        }
+        $khoaCong = array_keys($khoaSet);
+        if ($dacBiet) {
             $maTH = CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ct['ma']];
             $khoaCong = isset($idTheoMa[$maTH]) ? [$idTheoMa[$maTH]] : [];
         }
 
+        // $ct['cap'] đã có từ cay_tat_ca() (độ sâu thật trong cây)
         $th = null; $kh = null; $khNam = null; $truoc = null;
 
         if ($ct['nguon'] === 'CONG_THUC') {
@@ -104,21 +118,23 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
             $khNam = $kh;
         } else {
             foreach ($khoaCong as $idK) {
-                $v = gia_tri_luy_ke($nam, $cacThang, $idK, $ct['id']);
-                if ($v !== null) {
-                    $th = ($th ?? 0) + $v;
-                }
-                $c = chi_tieu_cua_ky($nam, $cacThang, $idK, $ct['id'], $goc);
-                if ($c !== null) {
-                    $kh = ($kh ?? 0) + $c;
-                }
-                $cn = chi_tieu_cua_ky($nam, range(1, 12), $idK, $ct['id'], $goc);
-                if ($cn !== null) {
-                    $khNam = ($khNam ?? 0) + $cn;
-                }
-                $r = ke_hoach_nam($nam, $idK)[$ct['id']] ?? null;
-                if ($r && $r['th_nam_truoc'] !== null) {
-                    $truoc = ($truoc ?? 0) + (float)$r['th_nam_truoc'];
+                foreach ($idsCong as $idCT) {
+                    $v = gia_tri_luy_ke($nam, $cacThang, $idK, $idCT);
+                    if ($v !== null) {
+                        $th = ($th ?? 0) + $v;
+                    }
+                    $c = chi_tieu_cua_ky($nam, $cacThang, $idK, $idCT, $goc);
+                    if ($c !== null) {
+                        $kh = ($kh ?? 0) + $c;
+                    }
+                    $cn = chi_tieu_cua_ky($nam, range(1, 12), $idK, $idCT, $goc);
+                    if ($cn !== null) {
+                        $khNam = ($khNam ?? 0) + $cn;
+                    }
+                    $r = ke_hoach_nam($nam, $idK)[$idCT] ?? null;
+                    if ($r && $r['th_nam_truoc'] !== null) {
+                        $truoc = ($truoc ?? 0) + (float)$r['th_nam_truoc'];
+                    }
                 }
             }
         }
@@ -166,20 +182,27 @@ function tri_chi_tieu(int $nam, array $cacThang, ?int $idKhoa, string $ma,
         ];
     }
 
-    $khoaCong = isset(CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ma])
-        ? array_values(array_filter($dsK,
-            fn($k) => $k['ma'] === CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ma]))
-        : $dsK;
+    // Chỉ tiêu đặc biệt (chống đếm trùng) chỉ lấy ở đúng một khoa và không gộp.
+    if (isset(CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ma])) {
+        $khoaCong = array_values(array_filter($dsK,
+            fn($k) => $k['ma'] === CHI_TIEU_LAY_O_KHOA_THUC_HIEN[$ma]));
+        $idsCong = [$ct['id']];
+    } else {
+        $khoaCong = $dsK;
+        $idsCong  = ids_gop_vao($ma);   // cộng cả các chỉ tiêu riêng "gộp vào"
+    }
 
     $th = null; $kh = null;
     foreach ($khoaCong as $k) {
-        $v = gia_tri_luy_ke($nam, $cacThang, (int)$k['id'], $ct['id']);
-        if ($v !== null) {
-            $th = ($th ?? 0) + $v;
-        }
-        $c = chi_tieu_cua_ky($nam, range(1, 12), (int)$k['id'], $ct['id'], $goc);
-        if ($c !== null) {
-            $kh = ($kh ?? 0) + $c;
+        foreach ($idsCong as $idCT) {
+            $v = gia_tri_luy_ke($nam, $cacThang, (int)$k['id'], $idCT);
+            if ($v !== null) {
+                $th = ($th ?? 0) + $v;
+            }
+            $c = chi_tieu_cua_ky($nam, range(1, 12), (int)$k['id'], $idCT, $goc);
+            if ($c !== null) {
+                $kh = ($kh ?? 0) + $c;
+            }
         }
     }
     return ['th' => $th, 'kh_nam' => $kh];
@@ -341,6 +364,10 @@ function xuat_excel(int $nam, string $ky, string $phamVi, int $idKhoa, string $g
     <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous"/></Borders></Style>
   <Style ss:ID="cha"><Font ss:Bold="1"/></Style>
   <Style ss:ID="con"><Alignment ss:Indent="1"/></Style>
+  <Style ss:ID="con1"><Alignment ss:Indent="1"/></Style>
+  <Style ss:ID="con2"><Alignment ss:Indent="2"/></Style>
+  <Style ss:ID="con3"><Alignment ss:Indent="3"/></Style>
+  <Style ss:ID="con4"><Alignment ss:Indent="4"/></Style>
   <Style ss:ID="so"><NumberFormat ss:Format="#,##0"/></Style>
   <Style ss:ID="so1"><NumberFormat ss:Format="#,##0.0"/></Style>
   <Style ss:ID="pt"><NumberFormat ss:Format="0.0&quot;%&quot;"/></Style>
@@ -374,7 +401,7 @@ function xuat_excel(int $nam, string $ky, string $phamVi, int $idKhoa, string $g
     $le  = in_array($d['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
     $kSo = $le ? 'so1' : 'so'; ?>
   <Row>
-    <Cell ss:StyleID="<?= $d['cap'] ? 'con' : 'cha' ?>">
+    <Cell ss:StyleID="<?= $d['cap'] ? 'con' . min(4, (int)$d['cap']) : 'cha' ?>">
       <Data ss:Type="String"><?= $x($d['ct']['ten']) ?></Data></Cell>
     <Cell><Data ss:Type="String"><?= $x($d['ct']['don_vi']) ?></Data></Cell>
     <?php if ($d['chi_tieu'] !== null): ?>

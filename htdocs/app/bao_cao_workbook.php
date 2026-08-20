@@ -54,6 +54,10 @@ function xuat_bao_cao_bo(int $nam, string $ky, string $loai, string $goc, array 
   <Style ss:ID="tt"><Alignment ss:Horizontal="Center"/><?= $vien ?></Style>
   <Style ss:ID="cha"><Font ss:Bold="1"/><?= $vien ?></Style>
   <Style ss:ID="con"><Alignment ss:Indent="2"/><Font ss:Color="#475569"/><?= $vien ?></Style>
+  <Style ss:ID="con1"><Alignment ss:Indent="2"/><Font ss:Color="#475569"/><?= $vien ?></Style>
+  <Style ss:ID="con2"><Alignment ss:Indent="4"/><Font ss:Color="#475569"/><?= $vien ?></Style>
+  <Style ss:ID="con3"><Alignment ss:Indent="6"/><Font ss:Color="#475569"/><?= $vien ?></Style>
+  <Style ss:ID="con4"><Alignment ss:Indent="8"/><Font ss:Color="#475569"/><?= $vien ?></Style>
   <Style ss:ID="dv"><Alignment ss:Horizontal="Center"/><?= $vien ?></Style>
   <Style ss:ID="so"><NumberFormat ss:Format="#,##0"/>
     <Alignment ss:Horizontal="Right"/><?= $vien ?></Style>
@@ -120,7 +124,7 @@ function xuat_bao_cao_bo(int $nam, string $ky, string $loai, string $goc, array 
 ?>
   <Row>
     <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $laCon ? '' : $stt ?></Data></Cell>
-    <Cell ss:StyleID="<?= $laCon ? 'con' : 'cha' ?>">
+    <Cell ss:StyleID="<?= $laCon ? 'con' . min(4, (int)$d['cap']) : 'cha' ?>">
       <Data ss:Type="String"><?= $x($d['ct']['ten']) ?></Data></Cell>
     <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($d['ct']['don_vi']) ?></Data></Cell>
     <?php if ($d['chi_tieu_nam'] !== null): ?>

@@ -1,6 +1,6 @@
 <?php
 /**
- * Nạp lại bộ danh mục chỉ tiêu mặc định (rút từ hai file Excel).
+ * Nạp lại bộ thư viện chỉ tiêu mặc định (rút từ hai file Excel).
  *
  * Tách thành trang riêng và BẮT BUỘC xem trước: đây là thao tác chạm vào
  * cả 59 chỉ tiêu cùng lúc, không nên là một cái nút nằm cuối trang danh mục.
@@ -132,7 +132,7 @@ if (la_post()) {
 
 mo_trang('Nạp danh mục mặc định');
 ?>
-<p class="duong-dan"><a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> › Nạp danh mục mặc định</p>
+<p class="duong-dan"><a href="/danh-muc-chi-tieu.php">Thư viện chỉ tiêu</a> › Nạp danh mục mặc định</p>
 <h1>Nạp danh mục mặc định</h1>
 <p class="phu">
   Bộ <?= count($dm) ?> chỉ tiêu rút từ hai file Excel đang dùng

@@ -6,7 +6,7 @@ mo_trang('Không có quyền truy cập');
   <h1>Không có quyền truy cập</h1>
   <p class="phu">
     Tài khoản của bạn không được phép sử dụng chức năng này.
-    Nếu cho rằng đây là nhầm lẫn, vui lòng liên hệ Phòng Kế hoạch Tổng hợp.
+    Nếu cho rằng đây là nhầm lẫn, vui lòng liên hệ admin.
   </p>
   <p><a class="nut" href="/">Về trang chủ</a></p>
 </div>

@@ -1,6 +1,6 @@
 <?php
 /**
- * Danh mục chỉ tiêu — xem và sửa.
+ * Thư viện chỉ tiêu — xem và sửa.
  *
  * Thêm mới và nạp lại bộ mặc định nằm ở hai trang riêng:
  *   chi-tieu-them.php · chi-tieu-nap-mac-dinh.php
@@ -18,13 +18,26 @@ if (la_post()) {
     kiem_tra_csrf();
     $viec = post('viec');
 
+    // Thao tác nhanh (ngừng / riêng-chuẩn / xóa) gọi bằng AJAX → trả JSON, không tải lại.
+    $laAjax = post('ajax') === '1';
+    $tra = function (bool $ok, string $msg, array $extra = []) use ($laAjax) {
+        if ($laAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => $ok, ($ok ? 'msg' : 'loi') => $msg] + $extra, JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        nhan_tin($ok ? 'ok' : 'loi', $msg);
+        chuyen_huong('/danh-muc-chi-tieu.php');
+    };
+
     /* ---------- Sửa chỉ tiêu ---------- */
     if ($viec === 'sua' && $duocSua) {
         $id  = (int)post('id');
         $cu  = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
         $ten = post('ten');
         $donVi = post('don_vi');
-        $thuTu = (int)post('thu_tu', '0');
+        $viTriMoi = (int)post('thu_tu', '0');   // ô "Thứ tự chung" giờ là VỊ TRÍ (1,2,3…)
+        $moTa  = trim(post('mo_ta')) !== '' ? trim(post('mo_ta')) : null;   // ghi chú quản lý
         $f = doc_bieu_mau($laDev);
 
         if (!$cu) {
@@ -33,18 +46,23 @@ if (la_post()) {
             nhan_tin('loi', 'Nội dung không được để trống.');
         } elseif (!$f) {
             nhan_tin('loi', 'Thông số chỉ tiêu không hợp lệ.');
-        } elseif (la_he_thong($cu['ma'])) {
-            // Chỉ tiêu hệ thống: giữ nguyên cách tính, chỉ cho sửa chữ hiển thị
-            q('UPDATE chi_tieu SET ten=?, don_vi=?, thu_tu=? WHERE id=?',
-                [$ten, $donVi, $thuTu, $id]);
-            ghi_nhat_ky('SUA_CHI_TIEU', $cu['ma'], $ten);
-            nhan_tin('ok', "Đã cập nhật \"$ten\". Đây là chỉ tiêu hệ thống nên cách tính giữ nguyên.");
         } else {
-            q('UPDATE chi_tieu SET ten=?, don_vi=?, thu_tu=?, loai_gia_tri=?,
-                 nguon=?, huong=?, phan_bo=? WHERE id=?',
-                [$ten, $donVi, $thuTu, $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo'], $id]);
+            if (la_he_thong($cu['ma'])) {
+                // Chỉ tiêu hệ thống: giữ nguyên cách tính, chỉ cho sửa chữ hiển thị + mô tả
+                q('UPDATE chi_tieu SET ten=?, don_vi=?, mo_ta=? WHERE id=?',
+                    [$ten, $donVi, $moTa, $id]);
+                nhan_tin('ok', "Đã cập nhật \"$ten\". Đây là chỉ tiêu hệ thống nên cách tính giữ nguyên.");
+            } else {
+                q('UPDATE chi_tieu SET ten=?, don_vi=?, loai_gia_tri=?,
+                     nguon=?, huong=?, phan_bo=?, mo_ta=? WHERE id=?',
+                    [$ten, $donVi, $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo'], $moTa, $id]);
+                nhan_tin('ok', "Đã cập nhật chỉ tiêu \"$ten\".");
+            }
+            // Ô "Thứ tự chung" là VỊ TRÍ trong nhóm — chuyển tới đó nếu khác chỗ hiện tại.
+            if ($viTriMoi > 0 && $viTriMoi !== vi_tri_thu_vien($id)) {
+                dat_vi_tri_thu_vien($id, $viTriMoi);
+            }
             ghi_nhat_ky('SUA_CHI_TIEU', $cu['ma'], $ten);
-            nhan_tin('ok', "Đã cập nhật chỉ tiêu \"$ten\".");
         }
         chuyen_huong('/danh-muc-chi-tieu.php');
     }
@@ -97,21 +115,47 @@ if (la_post()) {
         $id = (int)post('id');
         $cu = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
         if (!$cu) {
-            nhan_tin('loi', 'Không tìm thấy chỉ tiêu.');
+            $tra(false, 'Không tìm thấy chỉ tiêu.');
         } elseif (la_he_thong($cu['ma']) && (int)$cu['hoat_dong'] === 1) {
-            nhan_tin('loi', "\"{$cu['ten']}\" là chỉ tiêu hệ thống, bộ máy tính toán đang "
+            $tra(false, "\"{$cu['ten']}\" là chỉ tiêu hệ thống, bộ máy tính toán đang "
                 . 'tham chiếu tới nên không ngừng được.');
         } else {
             $moi = (int)$cu['hoat_dong'] === 1 ? 0 : 1;
             q('UPDATE chi_tieu SET hoat_dong = ? WHERE id = ?', [$moi, $id]);
+            $ids = [$id];
             if (!$moi) {
-                q('UPDATE chi_tieu SET hoat_dong = 0 WHERE id_cha = ?', [$id]);
+                foreach (hau_due_ids($id) as $cid) {   // ngừng cả con/cháu bên trong
+                    q('UPDATE chi_tieu SET hoat_dong = 0 WHERE id = ?', [$cid]);
+                    $ids[] = (int)$cid;
+                }
             }
             ghi_nhat_ky($moi ? 'DUNG_LAI_CHI_TIEU' : 'NGUNG_CHI_TIEU', $cu['ma']);
-            nhan_tin('ok', ($moi ? 'Đã dùng lại "' : 'Đã ngừng sử dụng "') . $cu['ten']
-                . '". Số liệu cũ vẫn được giữ.');
+            $tra(true, ($moi ? 'Đã dùng lại "' : 'Đã ngừng sử dụng "') . $cu['ten']
+                . '". Số liệu cũ vẫn được giữ.', ['moi' => $moi, 'ids' => $ids]);
         }
-        chuyen_huong('/danh-muc-chi-tieu.php');
+    }
+
+    /* ---------- Đổi chuẩn (thư viện) ↔ riêng ---------- */
+    if ($viec === 'doi_thu_vien' && $duocSua) {
+        $id = (int)post('id');
+        $cu = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
+        if (!$cu) {
+            $tra(false, 'Không tìm thấy chỉ tiêu.');
+        } elseif (la_he_thong($cu['ma'])) {
+            $tra(false, "\"{$cu['ma']}\" là chỉ tiêu hệ thống — luôn là chuẩn, không đổi được.");
+        } else {
+            $moi = (int)$cu['la_chuan'] === 1 ? 0 : 1;
+            if ($moi === 1) {
+                // Thành chuẩn → bỏ "gộp vào" (chuẩn thì đứng độc lập, lên tổng riêng)
+                q('UPDATE chi_tieu SET la_chuan = 1, gop_vao = NULL WHERE id = ?', [$id]);
+            } else {
+                q('UPDATE chi_tieu SET la_chuan = 0 WHERE id = ?', [$id]);
+            }
+            ghi_nhat_ky('DOI_THU_VIEN_CHI_TIEU', $cu['ma'], $moi ? 'chuẩn' : 'riêng');
+            $tra(true, "Đã đổi \"{$cu['ten']}\" thành "
+                . ($moi ? 'chỉ tiêu CHUẨN (vào thư viện, lên tổng toàn viện).'
+                        : 'chỉ tiêu RIÊNG (chỉ ở khoa, không lên tổng).'), ['moi' => $moi]);
+        }
     }
 
     /* ---------- Xóa vĩnh viễn ---------- */
@@ -120,30 +164,43 @@ if (la_post()) {
         $cu = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
         if (!co_quyen('chitieu.xoa')) {
             ghi_nhat_ky('TU_CHOI_XOA_CHI_TIEU', $cu['ma'] ?? (string)$id);
-            nhan_tin('loi', 'Chỉ người phát triển mới xóa vĩnh viễn được chỉ tiêu. '
+            $tra(false, 'Chỉ người phát triển mới xóa vĩnh viễn được chỉ tiêu. '
                 . 'Dùng nút "Ngừng dùng" thay thế.');
         } elseif (!$cu) {
-            nhan_tin('loi', 'Không tìm thấy chỉ tiêu.');
+            $tra(false, 'Không tìm thấy chỉ tiêu.');
         } elseif (la_he_thong($cu['ma'])) {
-            nhan_tin('loi', "\"{$cu['ma']}\" là chỉ tiêu hệ thống, xóa sẽ hỏng công thức "
+            $tra(false, "\"{$cu['ma']}\" là chỉ tiêu hệ thống, xóa sẽ hỏng công thức "
                 . 'ngày điều trị trung bình và công suất giường bệnh.');
         } elseif (($n = chi_tieu_co_du_lieu($id)) > 0) {
-            nhan_tin('loi', "Chỉ tiêu này đã có $n dòng số liệu/kế hoạch nên không xóa được. "
+            $tra(false, "Chỉ tiêu này đã có $n dòng số liệu/kế hoạch nên không xóa được. "
                 . 'Dùng nút "Ngừng dùng".');
         } elseif (qVal('SELECT 1 FROM chi_tieu WHERE id_cha = ?', [$id])) {
-            nhan_tin('loi', 'Còn nội dung nhỏ bên trong. Xóa các nội dung nhỏ trước.');
+            $tra(false, 'Còn nội dung nhỏ bên trong. Xóa các nội dung nhỏ trước.');
         } else {
             q('DELETE FROM chi_tieu WHERE id = ?', [$id]);
+            danh_lai_thu_tu();   // dồn lại số sau khi xóa
             ghi_nhat_ky('XOA_CHI_TIEU', $cu['ma'], $cu['ten']);
-            nhan_tin('ok', "Đã xóa chỉ tiêu \"{$cu['ten']}\".");
+            $tra(true, "Đã xóa chỉ tiêu \"{$cu['ten']}\".", ['xoa' => $id]);
         }
-        chuyen_huong('/danh-muc-chi-tieu.php');
     }
 }
 
 /* ---------------- Hiển thị ---------------- */
-$cay = cay_chi_tieu_day_du();
-$soGoc = count(array_filter($cay, fn($c) => $c['cap'] === 0));
+$cayDayDu = cay_chi_tieu_day_du();
+$soGoc = count(array_filter($cayDayDu, fn($c) => $c['cap'] === 0));
+$soRieng = count(array_filter($cayDayDu,
+    fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
+
+// Lọc theo thư viện: chuẩn / riêng (hệ thống luôn tính là chuẩn)
+$loc = in_array($_GET['loc'] ?? '', ['chuan', 'rieng'], true) ? $_GET['loc'] : '';
+$cay = $cayDayDu;
+if ($loc === 'chuan') {
+    $cay = array_values(array_filter($cay,
+        fn($c) => la_he_thong($c['ma']) || (int)($c['la_chuan'] ?? 1) === 1));
+} elseif ($loc === 'rieng') {
+    $cay = array_values(array_filter($cay,
+        fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
+}
 
 $apDung = [];
 foreach (qAll('SELECT * FROM chi_tieu_ap_dung') as $r) {
@@ -154,13 +211,13 @@ foreach ($dsKhoa as $k) {
     $maKhoa[(int)$k['id']] = $k['ma'];
 }
 
-mo_trang('Danh mục chỉ tiêu');
+mo_trang('Thư viện chỉ tiêu');
 ?>
 <div class="dau-muc">
   <div>
-    <h1>Danh mục chỉ tiêu</h1>
+    <h1>Thư viện chỉ tiêu</h1>
     <p class="phu">
-      <?= count($cay) ?> chỉ tiêu · <?= $soGoc ?> nội dung lớn.
+      <?= count($cayDayDu) ?> chỉ tiêu · <?= $soGoc ?> nội dung lớn · <?= $soRieng ?> riêng.
       Chỉ tiêu <em>bằng tổng các nội dung nhỏ</em> và <em>tính theo công thức</em>
       không nhập tay, hệ thống tự tính.
     </p>
@@ -169,13 +226,32 @@ mo_trang('Danh mục chỉ tiêu');
     <?php if ($duocThem): ?>
       <a class="nut" href="/chi-tieu-them.php">+ Thêm chỉ tiêu</a>
     <?php endif; ?>
+    <?php if (co_quyen('chitieu.xoa')): $soNhomTrung = so_nhom_trung_chac(); ?>
+      <a class="nut <?= $soNhomTrung ? 'nut-canh' : 'nut-phu' ?>" href="/gop-trung-lap.php"
+         title="Tìm các chỉ tiêu cùng tên bị tách thành nhiều mã và gộp lại">
+        Kiểm tra trùng lặp<?= $soNhomTrung ? ' <span class="menu-badge">' . $soNhomTrung . '</span>' : '' ?>
+      </a>
+    <?php endif; ?>
     <?php if (co_quyen('chitieu.nap_mac_dinh')): ?>
       <a class="nut nut-phu" href="/chi-tieu-nap-mac-dinh.php">Nạp danh mục mặc định</a>
     <?php endif; ?>
   </div>
 </div>
 
-<?php if (!$cay): ?>
+<p class="hang-nut" style="margin:.25rem 0 1rem">
+  <span class="phu">Lọc thư viện:</span>
+  <a class="nut nut-nho <?= $loc === '' ? '' : 'nut-phu' ?>" href="?">Tất cả</a>
+  <a class="nut nut-nho <?= $loc === 'chuan' ? '' : 'nut-phu' ?>" href="?loc=chuan">Chuẩn (thư viện)</a>
+  <a class="nut nut-nho <?= $loc === 'rieng' ? '' : 'nut-phu' ?>" href="?loc=rieng">Riêng (<?= $soRieng ?>)</a>
+  <input type="search" class="o-tim" data-tim="#bang-dm" data-dem="#dm-dem"
+         placeholder="Tìm mã / nội dung chỉ tiêu…" autocomplete="off">
+  <span id="dm-dem" class="phu"></span>
+</p>
+
+<?php if (!$cay && $loc): ?>
+  <div class="tb tb-canh-bao">Không có chỉ tiêu nào trong nhóm “<?= $loc === 'rieng' ? 'Riêng' : 'Chuẩn' ?>”.
+    <a href="?">Xem tất cả</a>.</div>
+<?php elseif (!$cay): ?>
   <div class="tb tb-canh-bao">
     Danh mục đang trống.
     <?php if (co_quyen('chitieu.nap_mac_dinh')): ?>
@@ -188,11 +264,11 @@ mo_trang('Danh mục chỉ tiêu');
 <?php else: ?>
 
 <div class="cuon-ngang">
-<table class="bang bang-mot-dong">
+<table class="bang bang-mot-dong" id="bang-dm">
   <thead>
     <tr>
       <th>Mã</th><th>Nội dung</th><th>Đơn vị</th><th>Loại</th>
-      <th>Nguồn</th><th>Đánh giá</th><th>Khoa áp dụng</th><th>Trạng thái</th>
+      <th>Nguồn</th><th>Đánh giá</th><th>Khoa áp dụng</th><th>Thư viện</th><th>Trạng thái</th>
       <?php if ($duocSua): ?><th>Thao tác</th><?php endif; ?>
     </tr>
   </thead>
@@ -202,14 +278,17 @@ mo_trang('Danh mục chỉ tiêu');
       $ds = $apDung[$id] ?? [];
       $heThong = la_he_thong($ct['ma']);
       $soDL = chi_tieu_co_du_lieu($id); ?>
-    <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?> <?= (int)$ct['hoat_dong'] ? '' : 'dong-mo' ?>">
+    <tr data-id="<?= $id ?>" class="<?= $ct['cap'] ? 'dong-con' : '' ?> <?= (int)$ct['hoat_dong'] ? '' : 'dong-mo' ?>">
       <td><code><?= e($ct['ma']) ?></code></td>
-      <td>
+      <td<?= $ct['cap'] ? ' style="padding-left:' . (10 + (int)$ct['cap'] * 20) . 'px"' : '' ?>>
         <?= $ct['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($ct['ten']) ?>
         <?php if ($heThong): ?>
           <span class="the the-nho" title="Bộ máy tính toán tham chiếu tới mã này">hệ thống</span>
         <?php endif; ?>
-        <?php if ($ct['cap'] === 0 && $duocThem): ?>
+        <?php if (!empty($ct['mo_ta'])): ?>
+          <div class="mo-ta-ct phu"><?= e($ct['mo_ta']) ?></div>
+        <?php endif; ?>
+        <?php if ($duocThem): ?>
           <a class="them-con" href="/chi-tieu-them.php?cha=<?= $id ?>"
              title="Thêm nội dung nhỏ vào đây">+ nội dung nhỏ</a>
         <?php endif; ?>
@@ -230,33 +309,56 @@ mo_trang('Danh mục chỉ tiêu');
           <span class="canh-bao-nho">chưa gán khoa</span>
         <?php endif; ?>
       </td>
-      <td><?= (int)$ct['hoat_dong']
+      <td class="nho o-thuvien">
+        <?php if ($heThong || (int)($ct['la_chuan'] ?? 1) === 1): ?>
+          <span class="the the-nho the-chuan">Chuẩn</span>
+        <?php else: ?>
+          <span class="the the-nho the-rieng">Riêng</span>
+          <?php if (!empty($ct['gop_vao'])): $gv = chi_tieu_theo_ma($ct['gop_vao']); ?>
+            <div class="phu" style="font-size:11px;margin-top:2px">↗ <?= e($gv ? $gv['ten'] : $ct['gop_vao']) ?></div>
+          <?php endif; ?>
+        <?php endif; ?>
+      </td>
+      <td class="o-trangthai"><?= (int)$ct['hoat_dong']
               ? '<span class="trang-thai bat">Đang dùng</span>'
               : '<span class="trang-thai tat">Ngừng</span>' ?></td>
       <?php if ($duocSua): ?>
-      <td class="thao-tac">
+      <td class="thao-tac"><div class="nhom-tt">
         <button type="button" class="nut nut-nho nut-phu" data-mo="sua-<?= $id ?>">Sửa</button>
         <button type="button" class="nut nut-nho nut-phu" data-mo="khoa-<?= $id ?>">Khoa</button>
+
+        <?php if (!$heThong): ?>
+        <form method="post">
+          <?= csrf_field() ?>
+          <input type="hidden" name="viec" value="doi_thu_vien">
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <button class="nut nut-nho nut-phu js-tv" type="submit"
+                  title="Chuyển giữa chuẩn (thư viện, lên tổng) và riêng của khoa">
+            <?= (int)($ct['la_chuan'] ?? 1) === 1 ? '→ Riêng' : '→ Chuẩn' ?>
+          </button>
+        </form>
+        <?php endif; ?>
 
         <?php if (co_quyen('chitieu.ngung') && !($heThong && (int)$ct['hoat_dong'])): ?>
         <form method="post">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="doi_trang_thai">
           <input type="hidden" name="id" value="<?= $id ?>">
-          <button class="nut nut-nho <?= (int)$ct['hoat_dong'] ? 'nut-nguy' : 'nut-phu' ?>"
+          <button class="nut nut-nho js-tt <?= (int)$ct['hoat_dong'] ? 'nut-canh' : 'nut-phu' ?>"
                   type="submit"><?= (int)$ct['hoat_dong'] ? 'Ngừng dùng' : 'Dùng lại' ?></button>
         </form>
         <?php endif; ?>
 
         <?php if (co_quyen('chitieu.xoa') && !$heThong && $soDL === 0): ?>
         <form method="post"
-              onsubmit="return confirm('Xóa vĩnh viễn chỉ tiêu <?= e($ct['ma']) ?>?')">
+              data-xac-nhan="Xóa vĩnh viễn chỉ tiêu <?= e($ct['ma']) ?>?" data-xac-nhan-loai="nguy">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="xoa">
           <input type="hidden" name="id" value="<?= $id ?>">
           <button class="nut nut-nho nut-nguy" type="submit">Xóa</button>
         </form>
         <?php endif; ?>
+        </div><!-- /.nhom-tt -->
 
         <!-- Popup Sửa chỉ tiêu -->
         <div class="lop-phu" id="sua-<?= $id ?>" hidden>
@@ -273,13 +375,16 @@ mo_trang('Danh mục chỉ tiêu');
               <div class="luoi-truong">
                 <label class="o-rong-2">Nội dung
                   <input type="text" name="ten" value="<?= e($ct['ten']) ?>" required></label>
+                <label class="o-rong-2">Mô tả / Ghi chú <small class="nhan-phu">(chữ nhạt hiện dưới tên — để người quản lý hiểu chỉ tiêu này dùng làm gì)</small>
+                  <input type="text" name="mo_ta" value="<?= e($ct['mo_ta'] ?? '') ?>"
+                         placeholder="VD: BHYT của bệnh nhân điều trị ngoại trú"></label>
                 <label>Đơn vị <input type="text" name="don_vi" value="<?= e($ct['don_vi']) ?>"></label>
-                <label>Thứ tự
-                  <input type="text" inputmode="numeric" name="thu_tu" value="<?= (int)$ct['thu_tu'] ?>"></label>
+                <label>Thứ tự chung <small class="nhan-phu">(vị trí trong thư viện: dòng đầu nhóm = 1; gõ số để chuyển tới vị trí đó — áp dụng chung + làm mặc định cho mọi khoa)</small>
+                  <input type="text" inputmode="numeric" name="thu_tu" value="<?= vi_tri_thu_vien((int)$ct['id']) ?>"></label>
                 <?php if (!$heThong): ?>
                   <label>Loại giá trị
                     <select name="loai_gia_tri">
-                      <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO'] as $v): ?>
+                      <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'] as $v): ?>
                         <option value="<?= $v ?>" <?= $ct['loai_gia_tri'] === $v ? 'selected' : '' ?>>
                           <?= e(NHAN[$v]) ?></option>
                       <?php endforeach; ?>
@@ -366,5 +471,69 @@ mo_trang('Danh mục chỉ tiêu');
   </tbody>
 </table>
 </div>
+
+<script>
+/* Thao tác nhanh (Ngừng/Dùng lại · →Riêng/→Chuẩn · Xóa) chạy AJAX — KHÔNG tải lại trang. */
+(function () {
+  function dong(id) { return document.querySelector('tr[data-id="' + id + '"]'); }
+
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (f.tagName !== 'FORM') { return; }
+    var vi = f.querySelector('input[name="viec"]');
+    if (!vi) { return; }
+    var viec = vi.value;
+    if (['doi_trang_thai', 'doi_thu_vien', 'xoa'].indexOf(viec) === -1) { return; }
+    e.preventDefault();
+    var fd = new FormData(f); fd.append('ajax', '1');
+    var id = fd.get('id');
+    fetch(location.pathname, { method: 'POST', body: fd })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d.ok) { toast(d.loi || 'Không thực hiện được.', 'canh-bao'); return; }
+        toast(d.msg || 'Xong.', 'ok');
+        if (viec === 'xoa') {
+          var tr = dong(d.xoa); if (tr) { tr.remove(); }
+        } else if (viec === 'doi_trang_thai') {
+          capNhatTrangThai(d.ids || [id], d.moi);
+        } else if (viec === 'doi_thu_vien') {
+          capNhatThuVien(id, d.moi);
+        }
+      })
+      .catch(function () { toast('Lỗi kết nối, thử lại.', 'canh-bao'); });
+  });
+
+  function capNhatTrangThai(ids, moi) {
+    ids.forEach(function (x) {
+      var tr = dong(x); if (!tr) { return; }
+      tr.classList.toggle('dong-mo', !moi);
+      var oTT = tr.querySelector('.o-trangthai');
+      if (oTT) {
+        oTT.innerHTML = moi
+          ? '<span class="trang-thai bat">Đang dùng</span>'
+          : '<span class="trang-thai tat">Ngừng</span>';
+      }
+      var nut = tr.querySelector('.js-tt');
+      if (nut) {
+        nut.textContent = moi ? 'Ngừng dùng' : 'Dùng lại';
+        nut.classList.toggle('nut-canh', !!moi);
+        nut.classList.toggle('nut-phu', !moi);
+      }
+    });
+  }
+
+  function capNhatThuVien(id, moi) {
+    var tr = dong(id); if (!tr) { return; }
+    var oTV = tr.querySelector('.o-thuvien');
+    if (oTV) {
+      oTV.innerHTML = moi
+        ? '<span class="the the-nho the-chuan">Chuẩn</span>'
+        : '<span class="the the-nho the-rieng">Riêng</span>';
+    }
+    var nut = tr.querySelector('.js-tv');
+    if (nut) { nut.textContent = moi ? '→ Riêng' : '→ Chuẩn'; }
+  }
+})();
+</script>
 <?php endif; ?>
 <?php dong_trang();

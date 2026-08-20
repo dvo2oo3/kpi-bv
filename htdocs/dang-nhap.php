@@ -84,7 +84,7 @@ function dau_cong_yte(): string
 
       <div class="dn-form-dau">
         <h2>Đăng nhập</h2>
-        <p>Dùng tài khoản do Phòng Kế hoạch Tổng hợp cấp.</p>
+        <p>Dùng tài khoản do admin cấp.</p>
       </div>
 
       <?php if ($loi): ?><div class="tb tb-loi"><?= e($loi) ?></div><?php endif; ?>
@@ -103,7 +103,7 @@ function dau_cong_yte(): string
 
       <p class="dn-ghi-chu">
         Quên mật khẩu? Hệ thống không gửi email được — vui lòng liên hệ
-        <strong>Phòng Kế hoạch Tổng hợp</strong> để được cấp lại.
+        <strong>admin</strong> để được cấp lại.
       </p>
     </div>
   </div>

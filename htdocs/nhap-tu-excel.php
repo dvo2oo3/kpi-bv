@@ -13,7 +13,7 @@ require_once __DIR__ . '/app/chi_tieu.php';
 require_once __DIR__ . '/app/xlsx.php';
 
 $toi = bat_buoc_dang_nhap();
-// Việc của Phòng KHTH. Khoa nào quen làm Excel thì admin ủy riêng quyền này —
+// Việc của admin. Khoa nào quen làm Excel thì admin ủy riêng quyền này —
 // khi đó vẫn chỉ thấy khoa của mình, và vẫn không đụng được chỉ tiêu giao.
 bat_buoc_quyen('solieu.nhap_excel');
 
@@ -42,7 +42,7 @@ $dsCT = array_values(array_filter(chi_tieu_cua_khoa($idKhoa),
 
 // Bác sĩ nhập số liệu nhưng không được đụng vào chỉ tiêu giao. Cột đó vẫn nằm
 // trong file mẫu để đối chiếu — bỏ hẳn cột thì các cột tháng dồn sang trái,
-// file của bác sĩ và file của Phòng KHTH không còn dùng lẫn cho nhau được.
+// file của bác sĩ và file của admin không còn dùng lẫn cho nhau được.
 $duocGiao = co_quyen('chitieu.giao');
 
 /* ============================================================
@@ -217,8 +217,9 @@ if (la_post() && post('viec') === 'ghi') {
 }
 
 mo_trang('Nhập từ Excel');
+tab_nhap();
 ?>
-<h1>Nhập số liệu từ Excel</h1>
+<h1>Nhập số liệu từ Excel — theo mẫu chuẩn</h1>
 
 <form method="get" class="thanh-loc">
   <label>Khoa
@@ -264,7 +265,7 @@ mo_trang('Nhập từ Excel');
       <li>Ô để trống nghĩa là <em>không đụng tới</em>, khác với số 0.</li>
       <?php if (!$duocGiao): ?>
         <li>Cột <strong>Chỉ tiêu giao</strong> chỉ để đối chiếu — sửa cột đó
-            hệ thống không nhận. Chỉ tiêu giao do Phòng KHTH đặt.</li>
+            hệ thống không nhận. Chỉ tiêu giao do admin đặt.</li>
       <?php endif; ?>
       <li>Lưu lại ở định dạng <strong>.xlsx</strong>.</li>
     </ul>
@@ -346,7 +347,7 @@ mo_trang('Nhập từ Excel');
   </div>
   <p class="hang-nut">
     <button class="nut" type="submit"
-            onclick="return confirm('Ghi <?= count($apDuoc) ?> giá trị vào hệ thống?')">
+            data-xac-nhan="Ghi <?= count($apDuoc) ?> giá trị vào hệ thống?">
       Ghi <?= count($apDuoc) ?> giá trị đã chọn
     </button>
     <a class="nut nut-phu" href="/nhap-tu-excel.php?nam=<?= $nam ?>&khoa=<?= $idKhoa ?>">Hủy</a>

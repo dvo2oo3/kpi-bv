@@ -2,7 +2,7 @@
 /**
  * Lịch mở kỳ nhập liệu.
  *
- * Phòng KHTH quyết định từ ngày nào tới ngày nào các khoa được nhập.
+ * admin quyết định từ ngày nào tới ngày nào các khoa được nhập.
  * Đặt cho cả 12 tháng một lần, hoặc riêng từng tháng, hoặc riêng từng khoa.
  * Không đặt gì thì chạy theo quy tắc mặc định.
  */
@@ -64,6 +64,33 @@ if (la_post()) {
         chuyen_huong("/lich-ky.php?nam=$nam");
     }
 
+    /* ---------- Mở CẢ 12 tháng để nhập bổ sung (nhập số liệu lịch sử) ----------
+       Khác "Đặt cả năm" ở chỗ: cửa nhập kéo từ đầu mỗi tháng tới MỘT NGÀY CHUNG
+       trong tương lai, nên các tháng đã qua cũng mở lại để nhập được. */
+    if ($viec === 'mo_ca_nam_nhap') {
+        $den    = doc_ngay(post('mo_den'));
+        $idKhoa = (int)post('id_khoa', '0');
+        if (!$den || strtotime($den) < strtotime(date('Y-m-d'))) {
+            nhan_tin('loi', 'Chọn "mở đến ngày" là một ngày từ hôm nay trở đi.');
+            chuyen_huong("/lich-ky.php?nam=$nam");
+        }
+        db()->beginTransaction();
+        for ($t = 1; $t <= 12; $t++) {
+            $mo = sprintf('%04d-%02d-01', $nam, $t);
+            q('DELETE FROM lich_ky WHERE nam=? AND thang=? AND id_khoa=?', [$nam, $t, $idKhoa]);
+            q('INSERT INTO lich_ky (nam, thang, id_khoa, mo_tu, dong_sau, ghi_chu, nguoi_dat)
+               VALUES (?,?,?,?,?,?,?)', [$nam, $t, $idKhoa, $mo, $den, 'Mở nhập bổ sung', $toi['id']]);
+        }
+        db()->commit();
+        $tenKhoa = $idKhoa === 0 ? 'mọi khoa'
+            : (qVal('SELECT ten FROM khoa WHERE id=?', [$idKhoa]) ?? '?');
+        ghi_nhat_ky('MO_CA_NAM_NHAP', "nam $nam", "12 tháng, đến $den, $tenKhoa");
+        nhan_tin('ok', "Đã mở cả 12 tháng năm $nam cho $tenKhoa để nhập bổ sung — "
+            . 'mở đến hết ' . date('d/m/Y', strtotime($den)) . '. '
+            . '(Kỳ đã DUYỆT/KHÓA thì cần “Mở lại” riêng.)');
+        chuyen_huong("/lich-ky.php?nam=$nam");
+    }
+
     /* ---------- Đặt lịch riêng một tháng ---------- */
     if ($viec === 'dat_thang') {
         $thang  = max(1, min(12, (int)post('thang')));
@@ -119,41 +146,80 @@ if (la_post()) {
 
         ghi_nhat_ky('KHOA_KY_NGAY', "T$thang/$nam", 'Đóng cửa nhập tức thì, mọi khoa');
         nhan_tin('ok', "Đã khóa tháng $thang/$nam ngay — mọi khoa không nhập/sửa được nữa. "
-            . 'Khoa đã nộp thì chờ Phòng KHTH duyệt.');
+            . 'Khoa đã nộp thì chờ admin duyệt.');
         chuyen_huong("/lich-ky.php?nam=$nam");
     }
 
-    /* ---------- Gia hạn riêng cho một khoa ---------- */
+    /* ---------- Gia hạn cho MỘT hoặc NHIỀU khoa cùng lúc ---------- */
     if ($viec === 'gia_han') {
-        $thang  = max(1, min(12, (int)post('thang')));
-        $idKhoa = (int)post('id_khoa');
-        $den    = doc_ngay(post('mo_den'));
-        $khoa   = q1('SELECT * FROM khoa WHERE id=?', [$idKhoa]);
+        $thang = max(1, min(12, (int)post('thang')));
+        $den   = doc_ngay(post('mo_den'));
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', (array)($_POST['id_khoa'] ?? [])), fn($x) => $x > 0)));
 
-        // Chỉ chặn khi bản ghi kỳ ĐÃ CHỐT thật sự. Trạng thái "Đã khóa" do hết
-        // hạn tự động thì gia hạn được — đó chính là việc gia hạn sinh ra để làm.
-        $kyCu = ban_ghi_ky($nam, $thang, $idKhoa);
-        $daChot = $kyCu && in_array($kyCu['trang_thai'], ['DA_DUYET', 'DA_KHOA'], true);
-
-        if (!$khoa) {
-            nhan_tin('loi', 'Không tìm thấy khoa.');
-        } elseif ($den === null) {
+        if ($den === null) {
             nhan_tin('loi', 'Ngày gia hạn không hợp lệ.');
-        } elseif ($daChot) {
-            nhan_tin('loi', 'Kỳ này đã duyệt hoặc đã khóa. Muốn sửa phải dùng bút toán điều chỉnh.');
+        } elseif (!$ids) {
+            nhan_tin('loi', 'Chưa chọn khoa nào.');
         } else {
-            if (!qVal('SELECT 1 FROM ky WHERE nam=? AND thang=? AND id_khoa=?',
-                    [$nam, $thang, $idKhoa])) {
-                q('INSERT INTO ky (nam, thang, id_khoa, trang_thai, mo_den) VALUES (?,?,?,?,?)',
-                    [$nam, $thang, $idKhoa, 'MO', $den]);
-            } else {
-                q('UPDATE ky SET mo_den=? WHERE nam=? AND thang=? AND id_khoa=?',
-                    [$den, $nam, $thang, $idKhoa]);
+            $ok = 0; $boQua = [];
+            db()->beginTransaction();
+            foreach ($ids as $idKhoa) {
+                $khoa = q1('SELECT ma FROM khoa WHERE id=?', [$idKhoa]);
+                if (!$khoa) { continue; }
+                // Bỏ qua kỳ ĐÃ CHỐT (đã duyệt/đã khóa) — không mở lại được.
+                $kyCu = ban_ghi_ky($nam, $thang, $idKhoa);
+                if ($kyCu && in_array($kyCu['trang_thai'], ['DA_DUYET', 'DA_KHOA'], true)) {
+                    $boQua[] = $khoa['ma']; continue;
+                }
+                if (!qVal('SELECT 1 FROM ky WHERE nam=? AND thang=? AND id_khoa=?',
+                        [$nam, $thang, $idKhoa])) {
+                    q('INSERT INTO ky (nam, thang, id_khoa, trang_thai, mo_den) VALUES (?,?,?,?,?)',
+                        [$nam, $thang, $idKhoa, 'MO', $den]);
+                } else {
+                    q('UPDATE ky SET mo_den=? WHERE nam=? AND thang=? AND id_khoa=?',
+                        [$den, $nam, $thang, $idKhoa]);
+                }
+                $ok++;
             }
-            ghi_nhat_ky('GIA_HAN_KY', $khoa['ma'], "T$thang/$nam đến $den");
-            nhan_tin('ok', "Đã gia hạn cho {$khoa['ten']} tháng $thang/$nam đến hết "
-                . date('d/m/Y', strtotime($den)) . '.');
+            db()->commit();
+            ghi_nhat_ky('GIA_HAN_KY', 'nhiều', "T$thang/$nam: $ok khoa đến $den");
+            $msg = "Đã gia hạn $ok khoa tháng $thang/$nam đến hết "
+                 . date('d/m/Y', strtotime($den)) . '.';
+            if ($boQua) { $msg .= ' Bỏ qua (đã chốt): ' . implode(', ', $boQua) . '.'; }
+            nhan_tin($ok > 0 ? 'ok' : 'loi', $ok > 0 ? $msg : 'Không gia hạn được khoa nào (đã chốt hết).');
         }
+        chuyen_huong("/lich-ky.php?nam=$nam");
+    }
+
+    /* ---------- Thu hồi gia hạn MỘT hoặc NHIỀU khoa cùng lúc ---------- */
+    if ($viec === 'thu_hoi') {
+        // Mỗi mục dạng "thang:id_khoa". Nút 1 dòng gửi 1 mục; nút hàng loạt gửi nhiều.
+        $muc = (array)($_POST['muc'] ?? []);
+        if (!$muc && post('id_khoa') !== '') {
+            $muc = [(int)post('thang') . ':' . (int)post('id_khoa')];
+        }
+        $ok = 0; $boQua = [];
+        db()->beginTransaction();
+        foreach ($muc as $m) {
+            [$thg, $idK] = array_pad(explode(':', (string)$m), 2, 0);
+            $thg = max(1, min(12, (int)$thg)); $idK = (int)$idK;
+            if ($idK <= 0) { continue; }
+            $khoa = q1('SELECT ma FROM khoa WHERE id=?', [$idK]);
+            if (!$khoa) { continue; }
+            $kyCu = ban_ghi_ky($nam, $thg, $idK);
+            if ($kyCu && in_array($kyCu['trang_thai'], ['DA_DUYET', 'DA_KHOA'], true)) {
+                $boQua[] = $khoa['ma']; continue;
+            }
+            q('UPDATE ky SET mo_den = NULL WHERE nam=? AND thang=? AND id_khoa=?',
+                [$nam, $thg, $idK]);
+            $ok++;
+        }
+        db()->commit();
+        ghi_nhat_ky('THU_HOI_GIA_HAN', 'nhiều', "$ok khoa");
+        $msg = "Đã thu hồi $ok khoa — đóng cửa nhập ngay.";
+        if ($boQua) { $msg .= ' Bỏ qua (đã chốt): ' . implode(', ', $boQua) . '.'; }
+        nhan_tin($ok > 0 ? 'ok' : 'loi', $ok > 0 ? $msg : 'Chưa chọn khoa nào để thu hồi.');
         chuyen_huong("/lich-ky.php?nam=$nam");
     }
 }
@@ -167,10 +233,24 @@ $lichKhoa = [];
 foreach (qAll('SELECT * FROM lich_ky WHERE nam = ? AND id_khoa > 0', [$nam]) as $r) {
     $lichKhoa[(int)$r['thang']][(int)$r['id_khoa']] = $r;
 }
-$giaHan = qAll('SELECT k.*, kh.ma, kh.ten FROM ky k JOIN khoa kh ON kh.id = k.id_khoa
-                 WHERE k.nam = ? AND k.mo_den IS NOT NULL ORDER BY k.thang, kh.thu_tu', [$nam]);
+// Chỉ liệt kê gia hạn CÒN Ý NGHĨA — bỏ kỳ đã chốt (đã duyệt/đã khóa) vì đã khóa
+// rồi thì gia hạn vô nghĩa, hiện "còn hiệu lực" gây hiểu nhầm.
+$giaHan = qAll("SELECT k.*, kh.ma, kh.ten FROM ky k JOIN khoa kh ON kh.id = k.id_khoa
+                 WHERE k.nam = ? AND k.mo_den IS NOT NULL
+                   AND k.trang_thai NOT IN ('DA_DUYET', 'DA_KHOA')
+                 ORDER BY k.thang, kh.thu_tu", [$nam]);
 $maKhoa = [];
 foreach ($dsKhoa as $k) { $maKhoa[(int)$k['id']] = $k['ma']; }
+
+// Mặc định form "Đặt nhanh" = lịch chung đã lưu (nếu có) → nhớ số đã đặt,
+// tải lại không bị nhảy về 1/5.
+$dfNgayMo = 1; $dfNgayDong = 5; $dfThangMo = 'chinh';
+foreach ($lichChung as $tKey => $lc) {
+    $dfNgayMo   = (int)date('j', strtotime($lc['mo_tu']));
+    $dfNgayDong = (int)date('j', strtotime($lc['dong_sau']));
+    $dfThangMo  = ((int)date('n', strtotime($lc['mo_tu'])) !== (int)$tKey) ? 'sau' : 'chinh';
+    break;   // lấy tháng đầu có lịch làm mẫu
+}
 
 mo_trang('Lịch mở kỳ');
 ?>
@@ -205,6 +285,35 @@ mo_trang('Lịch mở kỳ');
   </form>
 </div>
 
+<div class="tab-phu" role="tablist">
+  <button type="button" class="tab-phu-muc dang" data-tab="lich">📅 Lịch mở kỳ</button>
+  <button type="button" class="tab-phu-muc" data-tab="giahan">⏳ Gia hạn &amp; thu hồi</button>
+</div>
+
+<div class="tab-noi" data-tab="lich">
+<section class="the-hop" style="margin-bottom:1rem">
+  <h2>Mở tất cả tháng để nhập bổ sung <span class="the the-nho the-chuan">nhập số liệu lịch sử</span></h2>
+  <p class="phu" style="margin-top:.2rem">
+    Mở cửa nhập của <strong>cả 12 tháng</strong> năm <?= $nam ?> — <strong>kể cả tháng đã qua</strong> —
+    tới một ngày trong tương lai, để nhập/sửa số liệu cũ. (Kỳ đã <em>DUYỆT/KHÓA</em> thì phải bấm “Mở lại” riêng ở tab Duyệt kỳ.)
+  </p>
+  <form method="post" class="bieu-mau-ngang">
+    <?= csrf_field() ?>
+    <input type="hidden" name="viec" value="mo_ca_nam_nhap">
+    <input type="hidden" name="nam" value="<?= $nam ?>">
+    <label>Áp dụng cho
+      <select name="id_khoa">
+        <option value="0">Mọi khoa</option>
+        <?php foreach ($dsKhoa as $k): ?><option value="<?= (int)$k['id'] ?>">Riêng <?= e($k['ten']) ?></option><?php endforeach; ?>
+      </select>
+    </label>
+    <label>Mở đến hết ngày
+      <input type="date" name="mo_den" value="<?= $nam ?>-12-31" required>
+    </label>
+    <button class="nut nut-chinh" type="submit">Mở 12 tháng để nhập</button>
+  </form>
+</section>
+
 <h2>Đặt nhanh cho cả 12 tháng</h2>
 <form method="post" class="bieu-mau-ngang">
   <?= csrf_field() ?>
@@ -220,15 +329,15 @@ mo_trang('Lịch mở kỳ');
   </label>
   <label>Cửa nhập nằm ở
     <select name="thang_mo">
-      <option value="chinh">Trong chính tháng đó</option>
-      <option value="sau">Tháng kế tiếp</option>
+      <option value="chinh" <?= $dfThangMo === 'chinh' ? 'selected' : '' ?>>Trong chính tháng đó</option>
+      <option value="sau" <?= $dfThangMo === 'sau' ? 'selected' : '' ?>>Tháng kế tiếp</option>
     </select>
   </label>
   <label>Mở từ ngày
-    <input type="text" inputmode="numeric" name="ngay_mo" value="1">
+    <input type="text" inputmode="numeric" name="ngay_mo" value="<?= $dfNgayMo ?>">
   </label>
   <label>Đóng vào ngày
-    <input type="text" inputmode="numeric" name="ngay_dong" value="5">
+    <input type="text" inputmode="numeric" name="ngay_dong" value="<?= $dfNgayDong ?>">
     <small>Cùng tháng với ngày mở. Điền 31 = cuối tháng.</small>
   </label>
   <button class="nut nut-chinh" type="submit">Đặt cho cả năm</button>
@@ -252,7 +361,11 @@ mo_trang('Lịch mở kỳ');
   <?php for ($t = 1; $t <= 12; $t++):
       $cs = cua_so_ky($nam, $t, 0);
       $l  = $lichChung[$t] ?? null;
-      $tt = trang_thai_ky($nam, $t, (int)($dsKhoa[0]['id'] ?? 0)); ?>
+      // Trang Lịch mở kỳ hiện TRẠNG THÁI CỬA NHẬP của tháng (chưa đến / đang mở /
+      // đã đóng) — KHÔNG phải trạng thái duyệt của riêng một khoa. Trạng thái
+      // duyệt là việc của trang Duyệt kỳ, theo từng khoa.
+      $tt = time() < $cs['mo_tu'] ? 'CHUA_DEN'
+          : (time() <= $cs['dong_sau'] ? 'MO' : 'DA_KHOA'); ?>
     <tr>
       <td><strong>Tháng <?= $t ?></strong></td>
       <td class="nho"><?= date('d/m/Y', $cs['mo_tu']) ?></td>
@@ -303,7 +416,7 @@ mo_trang('Lịch mở kỳ');
           </form>
         </details>
         <?php if ($l): ?>
-        <form method="post" onsubmit="return confirm('Bỏ lịch tháng <?= $t ?>, quay về quy tắc mặc định?')">
+        <form method="post" data-xac-nhan="Bỏ lịch tháng <?= $t ?>, quay về quy tắc mặc định?">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="bo_lich">
           <input type="hidden" name="nam" value="<?= $nam ?>">
@@ -315,7 +428,7 @@ mo_trang('Lịch mở kỳ');
         <?php // Chỉ hiện khi tháng đang mở (còn trong cửa nhập)
         if (time() >= $cs['mo_tu'] && time() <= $cs['dong_sau']): ?>
         <form method="post"
-              onsubmit="return confirm('Khóa tháng <?= $t ?>/<?= $nam ?> NGAY cho mọi khoa? Không ai nhập/sửa được nữa.')">
+              data-xac-nhan="Khóa tháng <?= $t ?>/<?= $nam ?> NGAY cho mọi khoa? Không ai nhập/sửa được nữa." data-xac-nhan-loai="nguy">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="khoa_ngay">
           <input type="hidden" name="nam" value="<?= $nam ?>">
@@ -330,53 +443,108 @@ mo_trang('Lịch mở kỳ');
 </table>
 </div>
 
-<h2>Gia hạn riêng cho một khoa</h2>
+</div><!-- /tab lich -->
+
+<div class="tab-noi" data-tab="giahan" hidden>
+<h2>Gia hạn cho khoa</h2>
 <p class="phu">
-  Dùng khi một khoa nộp muộn hoặc cần nhập bổ sung sau khi lịch chung đã đóng.
-  Gia hạn đè lên mọi lịch, nhưng không mở lại được kỳ đã duyệt hay đã khóa.
+  Dùng khi khoa nộp muộn hoặc cần nhập bổ sung sau khi lịch chung đã đóng.
+  Chọn <strong>một hoặc nhiều khoa</strong>. Gia hạn đè lên mọi lịch, nhưng không mở lại được kỳ đã duyệt/đã khóa.
 </p>
-<form method="post" class="bieu-mau-ngang">
+<form method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="gia_han">
   <input type="hidden" name="nam" value="<?= $nam ?>">
-  <label>Khoa
-    <select name="id_khoa">
-      <?php foreach ($dsKhoa as $k): ?>
-        <option value="<?= (int)$k['id'] ?>"><?= e($k['ten']) ?></option>
-      <?php endforeach; ?>
-    </select>
-  </label>
-  <label>Tháng
-    <select name="thang">
-      <?php for ($t = 1; $t <= 12; $t++): ?>
-        <option value="<?= $t ?>">Tháng <?= $t ?></option>
-      <?php endfor; ?>
-    </select>
-  </label>
-  <label>Mở đến hết ngày
-    <input type="date" name="mo_den" value="<?= date('Y-m-d', strtotime('+7 days')) ?>">
-  </label>
-  <button class="nut" type="submit">Gia hạn</button>
+  <fieldset style="border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+    <legend style="font-weight:600;padding:0 6px">Chọn khoa</legend>
+    <label class="o-chon" style="display:inline-flex;gap:6px;margin:0 16px 6px 0;font-weight:600">
+      <input type="checkbox" onclick="ghChonHet(this)"> Tất cả
+    </label>
+    <?php foreach ($dsKhoa as $k): ?>
+      <label class="o-chon" style="display:inline-flex;gap:6px;margin:0 16px 6px 0">
+        <input type="checkbox" class="gh-khoa" name="id_khoa[]" value="<?= (int)$k['id'] ?>">
+        <strong><?= e($k['ma']) ?></strong> <span class="phu"><?= e($k['ten']) ?></span>
+      </label>
+    <?php endforeach; ?>
+  </fieldset>
+  <div class="bieu-mau-ngang">
+    <label>Tháng
+      <select name="thang">
+        <?php for ($t = 1; $t <= 12; $t++): ?>
+          <option value="<?= $t ?>">Tháng <?= $t ?></option>
+        <?php endfor; ?>
+      </select>
+    </label>
+    <label>Mở đến hết ngày
+      <input type="date" name="mo_den" value="<?= date('Y-m-d', strtotime('+7 days')) ?>">
+    </label>
+    <button class="nut nut-chinh" type="submit">Gia hạn khoa đã chọn</button>
+  </div>
 </form>
+<script>
+function ghChonHet(o){ document.querySelectorAll('.gh-khoa').forEach(c => c.checked = o.checked); }
+</script>
 
 <?php if ($giaHan): ?>
 <h3>Đang gia hạn</h3>
-<div class="cuon-ngang">
-<table class="bang">
-  <thead><tr><th>Khoa</th><th>Tháng</th><th>Mở đến hết</th><th>Còn hiệu lực</th></tr></thead>
-  <tbody>
-  <?php foreach ($giaHan as $g):
-      $con = strtotime($g['mo_den'] . ' 23:59:59') >= time(); ?>
-    <tr class="<?= $con ? '' : 'dong-mo' ?>">
-      <td><strong><?= e($g['ma']) ?></strong> <span class="phu"><?= e($g['ten']) ?></span></td>
-      <td>Tháng <?= (int)$g['thang'] ?></td>
-      <td class="nho"><?= date('d/m/Y', strtotime($g['mo_den'])) ?></td>
-      <td><?= $con ? '<span class="trang-thai bat">Còn hạn</span>'
-                   : '<span class="trang-thai tat">Hết hạn</span>' ?></td>
-    </tr>
-  <?php endforeach; ?>
-  </tbody>
-</table>
-</div>
+<form method="post">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="thu_hoi">
+  <input type="hidden" name="nam" value="<?= $nam ?>">
+  <div class="cuon-ngang">
+  <table class="bang">
+    <thead><tr>
+      <th style="width:32px"><input type="checkbox" onclick="thChonHet(this)" title="Chọn tất cả"></th>
+      <th>Khoa</th><th>Tháng</th><th>Mở đến hết</th><th>Còn hiệu lực</th>
+    </tr></thead>
+    <tbody>
+    <?php foreach ($giaHan as $g):
+        $con = strtotime($g['mo_den'] . ' 23:59:59') >= time(); ?>
+      <tr class="<?= $con ? '' : 'dong-mo' ?>">
+        <td><input type="checkbox" class="th-muc" name="muc[]"
+                   value="<?= (int)$g['thang'] ?>:<?= (int)$g['id_khoa'] ?>"></td>
+        <td><strong><?= e($g['ma']) ?></strong> <span class="phu"><?= e($g['ten']) ?></span></td>
+        <td>Tháng <?= (int)$g['thang'] ?></td>
+        <td class="nho"><?= date('d/m/Y', strtotime($g['mo_den'])) ?></td>
+        <td><?= $con ? '<span class="trang-thai bat">Còn hạn</span>'
+                     : '<span class="trang-thai tat">Hết hạn</span>' ?></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+  </div>
+  <div style="margin-top:10px">
+    <button class="nut nut-nguy" type="submit"
+            data-xac-nhan="Thu hồi các khoa đã chọn? Khoa sẽ không nhập/sửa được nữa ngay." data-xac-nhan-loai="nguy">
+      Thu hồi khoa đã chọn
+    </button>
+  </div>
+</form>
+<script>
+function thChonHet(o){ document.querySelectorAll('.th-muc').forEach(c => c.checked = o.checked); }
+</script>
 <?php endif; ?>
+</div><!-- /tab giahan -->
+
+<script>
+/* Tab con trang Lịch mở kỳ — đổi tab không tải lại, nhớ qua #hash */
+(function () {
+  var thanh = document.querySelector('.tab-phu[role="tablist"]');
+  if (!thanh) { return; }
+  var noi = document.querySelectorAll('.tab-noi[data-tab]');
+  function mo(t) {
+    var co = false;
+    thanh.querySelectorAll('[data-tab]').forEach(function (b) {
+      var chon = b.dataset.tab === t; b.classList.toggle('dang', chon); if (chon) { co = true; }
+    });
+    if (!co) { t = 'lich'; thanh.querySelector('[data-tab="lich"]').classList.add('dang'); }
+    noi.forEach(function (x) { x.hidden = x.dataset.tab !== t; });
+  }
+  thanh.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tab]'); if (!b) { return; }
+    mo(b.dataset.tab); history.replaceState(null, '', '#' + b.dataset.tab);
+  });
+  mo((location.hash || '#lich').slice(1));
+})();
+</script>
 <?php dong_trang();

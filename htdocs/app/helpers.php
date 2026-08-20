@@ -29,8 +29,36 @@ function kiem_tra_csrf(): void
     $gui = $_POST['_csrf'] ?? '';
     if (!hash_equals($_SESSION['csrf'] ?? '', $gui)) {
         http_response_code(419);
-        die('Phiên làm việc đã hết hạn hoặc yêu cầu không hợp lệ. Vui lòng tải lại trang.');
+        trang_loi_phien();
     }
+}
+
+/** Trang báo phiên hết hạn / token sai — có nút tự xử lý, thay cho die() trơ. */
+function trang_loi_phien(): void
+{
+    $login = da_dang_nhap() ? '/' : '/dang-nhap.php';
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<!doctype html><html lang="vi"><head><meta charset="utf-8">'
+        . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        . '<title>Phiên đã hết hạn</title><style>'
+        . ':root{color-scheme:light dark}'
+        . 'body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;'
+        . 'font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f1f5f9;color:#0f172a;padding:20px}'
+        . '@media(prefers-color-scheme:dark){body{background:#0f172a;color:#e2e8f0}.hop{background:#1e293b !important;border-color:#334155 !important}}'
+        . '.hop{background:#fff;border:1px solid #e2e8f0;border-radius:16px;max-width:420px;width:100%;'
+        . 'padding:28px 26px;box-shadow:0 10px 30px rgba(0,0,0,.12);text-align:center}'
+        . '.bieu{font-size:40px;margin-bottom:8px}h1{font-size:19px;margin:6px 0 6px}'
+        . 'p{margin:0 0 18px;color:#64748b;line-height:1.55;font-size:14.5px}'
+        . '.nut{display:inline-block;padding:11px 18px;border-radius:10px;font-weight:600;'
+        . 'text-decoration:none;font-size:14.5px;border:0;cursor:pointer;margin:4px}'
+        . '.c{background:#2563eb;color:#fff}.p{background:transparent;color:#2563eb;border:1px solid #2563eb}'
+        . '</style></head><body><div class="hop"><div class="bieu">⏱️</div>'
+        . '<h1>Phiên làm việc đã hết hạn</h1>'
+        . '<p>Yêu cầu không hợp lệ hoặc trang đã mở quá lâu. Hãy tải lại rồi thao tác lại giúp bạn nhé.</p>'
+        . '<button class="nut c" onclick="location.href=location.pathname">Tải lại trang</button>'
+        . '<a class="nut p" href="' . e($login) . '">' . ($login === '/' ? 'Về trang chủ' : 'Về đăng nhập') . '</a>'
+        . '</div></body></html>';
+    exit;
 }
 
 /* ---------- Thông báo giữa các trang ---------- */
@@ -74,7 +102,17 @@ function ten_vai_tro(string $ma): string
 
 function ngay_gio(?string $s): string
 {
-    return $s ? date('d/m/Y H:i', strtotime($s)) : '—';
+    if (!$s) {
+        return '—';
+    }
+    // SQLite (bản chạy thử ở máy cá nhân) lưu CURRENT_TIMESTAMP theo giờ UTC,
+    // không có múi giờ phiên như MySQL → bù +7h để hiện đúng giờ Việt Nam.
+    // MySQL trên máy chủ đã SET time_zone='+07:00' nên giữ nguyên.
+    static $bu = null;
+    if ($bu === null) {
+        $bu = db()->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 7 * 3600 : 0;
+    }
+    return date('d/m/Y H:i', strtotime($s) + $bu);
 }
 
 /** Số có dấu phân cách nghìn kiểu Việt Nam. Null hiện dấu gạch. */

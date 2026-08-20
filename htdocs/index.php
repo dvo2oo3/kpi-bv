@@ -13,17 +13,22 @@ require_once __DIR__ . '/app/layout.php';
 require_once __DIR__ . '/app/chi_tieu.php';
 require_once __DIR__ . '/app/bao_cao.php';
 require_once __DIR__ . '/app/bieu_do.php';
+require_once __DIR__ . '/app/cai_dat.php';
 
 $nd = bat_buoc_dang_nhap();
 
 $nam = (int)($_GET['nam'] ?? NAM_MAC_DINH);
 
-// Kỳ báo cáo — lũy kế từ đầu năm, cho chọn, mặc định 6 tháng.
-$KY_THANG = ['3t' => 3, '6t' => 6, '9t' => 9, 'nam' => 12];
-$KY_TEN   = ['3t' => 'Quý I · 3 tháng', '6t' => '6 tháng đầu năm',
+// Kỳ báo cáo — lũy kế từ đầu năm. Mặc định "đến nay": lũy kế tới tháng gần nhất
+// đã kết thúc (năm cũ = cả 12 tháng), nên nhãn tự nhảy theo thời gian.
+$namNay = (int)date('Y');
+$thangDenNay = ($nam === $namNay) ? min(12, max(1, (int)date('n') - 1)) : 12;
+$KY_THANG = ['nay' => $thangDenNay, '3t' => 3, '6t' => 6, '9t' => 9, 'nam' => 12];
+$KY_TEN   = ['nay' => $thangDenNay . ' tháng đầu năm (đến nay)',
+             '3t' => 'Quý I · 3 tháng', '6t' => '6 tháng đầu năm',
              '9t' => '9 tháng đầu năm', 'nam' => 'Cả năm'];
-$ky = (string)($_GET['ky'] ?? '6t');
-if (!isset($KY_THANG[$ky])) { $ky = '6t'; }
+$ky = (string)($_GET['ky'] ?? 'nay');
+if (!isset($KY_THANG[$ky])) { $ky = 'nay'; }
 $soThangKy = $KY_THANG[$ky];
 
 // Kỳ gần nhất đã kết thúc — dùng cho banner "khoa chưa nộp"
@@ -67,57 +72,89 @@ foreach ($dsKhoa as $k) {
     }
 }
 
-/* ---------- 2. Bốn chỉ tiêu trụ cột ---------- */
-$chiTieuChinh = [
-    ['KB',   'Lượt khám bệnh',        0],
-    ['NT',   'Bệnh nhân nội trú',     0],
-    ['NDT',  'Ngày điều trị nội trú', 0],
-    ['CSGB', 'Công suất giường bệnh', 1],
+// Chờ duyệt TỔNG — mọi tháng, không chỉ tháng đang xem, để admin không bỏ sót
+// (bác sĩ có thể nộp cho tháng khác với "tháng trước" mà dashboard đang tính).
+$choDuyetDs = co_quyen('ky.duyet')
+    ? qAll("SELECT k.nam, k.thang, kh.ma, kh.ten
+            FROM ky k JOIN khoa kh ON kh.id = k.id_khoa
+            WHERE k.trang_thai = 'DA_NOP'
+            ORDER BY k.nam DESC, k.thang DESC, kh.thu_tu, kh.ten")
+    : [];
+
+/* ---------- 2 & 3. Các ô trên trang chủ ----------
+ * Lấy chỉ tiêu theo CẤU HÌNH (id) nếu đã đặt; chưa đặt thì dùng mã mặc định.
+ * Nhờ vậy đổi tên/đổi mã không làm mất số — chỉ cần chọn lại chỉ tiêu.
+ */
+const DASHBOARD_TRU_COT_MD    = ['KB', 'NT', 'NDT', 'CSGB'];
+const DASHBOARD_KHOI_LUONG_MD = ['TT', 'PT', 'XN', 'XQ', 'SA', 'NS'];
+
+$dashCfg = dashboard_o();
+$layTheoId = function (array $ids): array {
+    $tc = tat_ca_chi_tieu();
+    $r = [];
+    foreach ($ids as $id) { if (isset($tc[(int)$id])) { $r[] = $tc[(int)$id]; } }
+    return $r;
+};
+$layTheoMa = fn(array $mas) => array_values(array_filter(array_map('chi_tieu_theo_ma', $mas)));
+
+// Nhãn ngắn gọn cho các chỉ tiêu chuẩn; chỉ tiêu tự tạo thì lấy tên của nó.
+$NHAN_NGAN = [
+    'KB' => 'Lượt khám bệnh', 'NT' => 'Bệnh nhân nội trú',
+    'NDT' => 'Ngày điều trị nội trú', 'CSGB' => 'Công suất giường bệnh',
+    'TT' => 'Thủ thuật', 'PT' => 'Phẫu thuật', 'XN' => 'Xét nghiệm',
+    'XQ' => 'X-quang', 'SA' => 'Siêu âm', 'NS' => 'Nội soi',
 ];
+$nhanThe = fn(array $ct) => $NHAN_NGAN[$ct['ma']] ?? $ct['ten'];
+
+$rowsTruCot = !empty($dashCfg['tru_cot'])
+    ? $layTheoId($dashCfg['tru_cot']) : $layTheoMa(DASHBOARD_TRU_COT_MD);
+$rowsKhoiLuong = !empty($dashCfg['khoi_luong'])
+    ? $layTheoId($dashCfg['khoi_luong']) : $layTheoMa(DASHBOARD_KHOI_LUONG_MD);
 
 $oSoLieu = [];
-foreach ($chiTieuChinh as [$ma, $ten, $le]) {
-    $ct = chi_tieu_theo_ma($ma);
-    if (!$ct) { continue; }
+foreach ($rowsTruCot as $ct) {
+    $ma = $ct['ma'];
+    // Tỷ lệ / trung bình hiển thị 1 số lẻ; số đếm để nguyên
+    $le = in_array($ct['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0;
     $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ma);
 
     // Cùng kỳ năm trước, tính từ số liệu thật chứ không lấy chỉ tiêu
     $cungKy = tri_chi_tieu($nam - 1, $cacThangLuyKe, $idKhoaXem, $ma)['th'];
 
     $oSoLieu[] = [
-        'ten' => $ten, 'le' => $le, 'don_vi' => $ct['don_vi'],
+        'ten' => $nhanThe($ct), 'le' => $le, 'don_vi' => $ct['don_vi'],
         'thuc_hien' => $v['th'], 'chi_tieu_nam' => $v['kh_nam'],
         'pt' => pt_so_ke_hoach_nam($v['th'], $v['kh_nam']),
         'cung_ky' => $cungKy,
         'chuoi' => chuoi_12_thang($nam, $idKhoaXem, $ma),
         'la_ty_le' => $ct['loai_gia_tri'] === 'TY_LE',
+        'chu_thich' => mo_ta_cong_thuc($ct),
     ];
 }
 
-/* ---------- 3. Khối lượng chuyên môn ---------- */
 $chuyenMon = [];
-foreach ([['TT','Thủ thuật'], ['PT','Phẫu thuật'], ['XN','Xét nghiệm'],
-          ['XQ','X-quang'], ['SA','Siêu âm'], ['NS','Nội soi']] as [$ma, $ten]) {
-    $ct = chi_tieu_theo_ma($ma);
-    if (!$ct) { continue; }
+foreach ($rowsKhoiLuong as $ct) {
     // Vẫn hiện cả khi chưa có số liệu — ô trống là tín hiệu có khoa chưa nhập,
     // ẩn đi thì người xem không biết là đang thiếu.
-    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ma);
-    $chuyenMon[] = ['ten' => $ten, 'don_vi' => $ct['don_vi'],
+    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ct['ma']);
+    $chuyenMon[] = ['ten' => $nhanThe($ct), 'don_vi' => $ct['don_vi'],
                     'th' => $v['th'], 'kh' => $v['kh_nam'],
                     'pt' => pt_so_ke_hoach_nam($v['th'], $v['kh_nam'])];
 }
 
 /* ---------- 3b. Chất lượng điều trị và cơ cấu bệnh nhân ---------- */
+// Lấy ĐỘNG các mục con của "Kết quả điều trị nội trú" (KQDT) — thêm mục mới
+// (khỏi/đỡ/nặng…) tự hiện, không cần sửa code.
 $chatLuong = [];
 $tongKQ = null;
-foreach ([['KQ_KHOI','Khỏi'], ['KQ_DO','Đỡ'],
-          ['KQ_KTD','Không thay đổi'], ['KQ_NANG','Nặng hơn']] as [$ma, $ten]) {
-    $ct = chi_tieu_theo_ma($ma);
-    if (!$ct) { continue; }
-    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ma)['th'];
-    if ($v !== null) { $tongKQ = ($tongKQ ?? 0) + $v; }
-    $chatLuong[] = ['ten' => $ten, 'th' => $v];
+$ctKQDT = chi_tieu_theo_ma('KQDT');
+if ($ctKQDT) {
+    foreach (tat_ca_chi_tieu() as $c) {
+        if ($c['id_cha'] !== (int)$ctKQDT['id']) { continue; }
+        $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $c['ma'])['th'];
+        if ($v !== null) { $tongKQ = ($tongKQ ?? 0) + $v; }
+        $chatLuong[] = ['ten' => $c['ten'], 'th' => $v];
+    }
 }
 foreach ($chatLuong as &$c) {
     $c['pt'] = ($tongKQ && $tongKQ > 0 && $c['th'] !== null) ? $c['th'] / $tongKQ * 100 : null;
@@ -244,6 +281,14 @@ foreach ($dongBC as $r) {   // công suất giường ưu tiên cho gauge nếu 
     if ($r['ct']['ma'] === 'CSGB' && $r['th'] !== null) { $theGauge = $r; break; }
 }
 
+// Đổi khoa ở khối "Báo cáo theo khoa" gọi AJAX vào đây — trả về ĐÚNG khối đó,
+// không dựng lại cả trang (tránh tải lại, không nhảy về đầu trang).
+if (($_GET['phan'] ?? '') === 'bao_cao_khoa') {
+    header('Content-Type: text/html; charset=UTF-8');
+    require __DIR__ . '/app/phan_bao_cao_khoa.php';
+    exit;
+}
+
 mo_trang('Tổng quan');
 ?>
 <div class="dau-muc">
@@ -252,6 +297,9 @@ mo_trang('Tổng quan');
     <p class="phu">
       <?= e($KY_TEN[$ky]) ?> · năm <?= $nam ?><?php if (!$anKpi): ?> ·
       tiến độ kỳ vọng <strong><?= $tienDoKyVong ?>%</strong> kế hoạch năm<?php endif; ?>
+      <?php if (co_quyen('he_thong.trang_chu')): ?>
+        · <a href="/cau-hinh-trang-chu.php">⚙ Chọn ô hiển thị</a>
+      <?php endif; ?>
     </p>
   </div>
   <form method="get" class="hang-nut">
@@ -274,6 +322,21 @@ mo_trang('Tổng quan');
 </div>
 
 <!-- ============ Việc cần làm ============ -->
+<?php if ($choDuyetDs): ?>
+<div class="tb tb-canh-bao">
+  <strong><?= count($choDuyetDs) ?> kỳ đang chờ bạn duyệt</strong> (gồm mọi tháng có khoa đã nộp):
+  <div class="ds-cho-nop">
+    <?php foreach ($choDuyetDs as $c): ?>
+      <a class="the-cho-nop"
+         href="/duyet-ky.php?nam=<?= (int)$c['nam'] ?>&thang=<?= (int)$c['thang'] ?>">
+        <strong><?= e($c['ma']) ?></strong>
+        <span>tháng <?= (int)$c['thang'] ?>/<?= (int)$c['nam'] ?></span>
+      </a>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if ($khoaChuaNop): ?>
 <div class="tb tb-canh-bao">
   <strong><?= count($khoaChuaNop) ?> khoa chưa nộp số liệu tháng <?= $thangKy ?>/<?= $namKy ?></strong>
@@ -314,6 +377,10 @@ mo_trang('Tổng quan');
       </header>
 
       <div class="kpi-so"><?= $o['thuc_hien'] === null ? '—' : so($o['thuc_hien'], $o['le']) ?></div>
+
+      <?php if (!empty($o['chu_thich'])): ?>
+        <p class="kpi-tu-tinh"><span class="nhan-tu-tinh">Tự tính</span> <?= e($o['chu_thich']) ?></p>
+      <?php endif; ?>
 
       <?php if (!$o['la_ty_le'] && $o['pt'] !== null): ?>
         <div class="thanh-tien-do rong">
@@ -467,138 +534,34 @@ mo_trang('Tổng quan');
 <?php endif; /* xemToanVien */ ?>
 
 <!-- ============ Báo cáo / Số liệu theo khoa ============ -->
-<?php if ($khoaBC): ?>
-<div class="dau-muc dau-muc-bc">
-  <div>
-    <h2 class="tieu-de-phan" style="margin:0"><?= $xemToanVien
-        ? 'Báo cáo theo khoa — ' . e($khoaBC['ten'])
-        : 'Số liệu Khoa ' . e(preg_replace('/^Khoa\s+/u', '', $khoaBC['ten'])) ?></h2>
-    <p class="phu" style="margin:3px 0 0">
-      Lũy kế <?= e($KY_TEN[$ky]) ?> · % kế hoạch năm · diễn biến 12 tháng.
-    </p>
-  </div>
-  <form method="get" class="hang-nut">
-    <input type="hidden" name="nam" value="<?= $nam ?>">
-    <input type="hidden" name="ky" value="<?= e($ky) ?>">
-    <?php if (count($dsKhoa) > 1): ?>
-    <label class="an-nhan">Khoa
-      <select name="bc" onchange="this.form.submit()">
-        <?php foreach ($dsKhoa as $k): ?>
-          <option value="<?= (int)$k['id'] ?>" <?= (int)$k['id'] === $idKhoaBC ? 'selected' : '' ?>>
-            <?= e($k['ten']) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-    <?php endif; ?>
-    <?php if (co_quyen('baocao.xuat')): ?>
-      <a class="nut nut-phu" href="/bao-cao.php?nam=<?= $nam ?>&ky=<?= $soThangKy ?>T&pv=khoa&khoa=<?= (int)$idKhoaBC ?>">Xuất Excel khoa</a>
-    <?php endif; ?>
-  </form>
+<div id="phan-bc">
+<?php require __DIR__ . '/app/phan_bao_cao_khoa.php'; ?>
 </div>
-
-<?php if ($theVong): ?>
-<!-- Thẻ vòng tròn %KH cho vài chỉ tiêu chính của khoa -->
-<div class="luoi-vong">
-  <?php foreach ($theVong as $i => $r):
-      $ct = $r['ct'];
-      $dat = $r['pt'] >= $tienDoKyVong;
-      $mau = $dat ? '#0f766e' : '#d97706'; ?>
-    <div class="the-vong">
-      <div class="tv-trai">
-        <div class="tv-vong"><?= svg_donut((float)$r['pt'], $mau) ?>
-          <span class="tv-pt"><?= phan_tram($r['pt']) ?></span></div>
-      </div>
-      <div class="tv-phai">
-        <div class="tv-ten"><?= e($ct['ten']) ?></div>
-        <div class="tv-so"><?= so($r['th'], $r['le']) ?><span class="tv-dv"> <?= e($ct['don_vi']) ?></span></div>
-        <div class="tv-kh phu">/ <?= so($r['kh'], 0) ?> kế hoạch năm</div>
-      </div>
-    </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
-<?php if ($theDuong || $theGauge): ?>
-<div class="luoi-bd">
-  <?php if ($theDuong): ?>
-  <div class="khung-bd">
-    <div class="bd-dau">
-      <h3>Diễn biến 12 tháng — <?= e($theDuong['ct']['ten']) ?></h3>
-      <span class="phu nho">đơn vị: <?= e($theDuong['ct']['don_vi']) ?></span>
-    </div>
-    <?= bieu_do_duong($theDuong['chuoi'], $theDuong['ct']['don_vi'], $theDuong['le']) ?>
-    <?= nhan_thang() ?>
-  </div>
-  <?php endif; ?>
-  <?php if ($theGauge): ?>
-  <div class="khung-gauge">
-    <div class="bd-dau"><h3><?= e($theGauge['ct']['ten']) ?></h3></div>
-    <?= svg_gauge($theGauge['th'], 120, 100) ?>
-    <div class="gauge-so"><?= so($theGauge['th'], $theGauge['le']) ?><?= $theGauge['ct']['loai_gia_tri'] === 'TY_LE' ? '%' : '' ?></div>
-    <div class="gauge-nhan phu">Mức mong muốn 100%</div>
-  </div>
-  <?php endif; ?>
-</div>
-<?php endif; ?>
-
-<?php if ($dongBC): ?>
-<h3 class="td-bang">Tất cả chỉ tiêu của khoa</h3>
-<div class="cuon-ngang">
-<table class="bang bang-bc">
-  <thead>
-    <tr>
-      <th>Nội dung</th>
-      <th class="phai">KH năm</th>
-      <th class="phai">Đạt <?= $soThangKy ?> tháng</th>
-      <?php if (!$anKpi): ?><th class="giua">%KH</th><?php endif; ?>
-      <th>Diễn biến 12 tháng</th>
-      <th class="phai">Tháng cao nhất</th>
-    </tr>
-  </thead>
-  <tbody>
-  <?php foreach ($dongBC as $r):
-      $ct = $r['ct'];
-      $mx = 0;
-      foreach ($r['chuoi'] as $v) { if ($v !== null && $v > $mx) { $mx = $v; } }
-      $dvi = $ct['loai_gia_tri'] === 'TY_LE' ? '%' : $ct['don_vi']; ?>
-    <tr>
-      <td><strong><?= e($ct['ten']) ?></strong>
-        <span class="phu nho">· <?= e($dvi) ?></span></td>
-      <td class="phai nho"><?= $r['la_muc_dich'] ? '<span class="phu">—</span>' : so($r['kh'], 0) ?></td>
-      <td class="phai"><strong><?= $r['th'] === null ? '<span class="phu">—</span>' : so($r['th'], $r['le']) ?></strong></td>
-      <?php if (!$anKpi): ?>
-      <td class="giua">
-        <?php if (!$r['la_muc_dich'] && $r['pt'] !== null):
-            $dat = $r['pt'] >= $tienDoKyVong; ?>
-          <span class="vien-pt <?= $dat ? 'pt-dat' : 'pt-cham' ?>"><?= phan_tram($r['pt']) ?></span>
-        <?php elseif ($r['la_muc_dich']): ?>
-          <span class="phu nho">mức đích</span>
-        <?php else: ?><span class="phu">—</span><?php endif; ?>
-      </td>
-      <?php endif; ?>
-      <td>
-        <div class="spark" aria-hidden="true">
-          <?php for ($t = 1; $t <= 12; $t++):
-              $v = $r['chuoi'][$t];
-              $h = ($mx > 0 && $v !== null) ? max(6, (int)round($v / $mx * 100)) : 0; ?>
-            <span class="spark-c <?= $t === $r['peakT'] ? 'cao' : '' ?>"
-                  title="Tháng <?= $t ?>: <?= $v === null ? 'chưa có' : so($v, $r['le']) ?>">
-              <i style="height:<?= $h ?>%"></i>
-            </span>
-          <?php endfor; ?>
-        </div>
-      </td>
-      <td class="phai nho"><?= $r['peakT'] === null
-          ? '—' : 'T' . $r['peakT'] . ' · ' . so($r['peakV'], $r['le']) ?></td>
-    </tr>
-  <?php endforeach; ?>
-  </tbody>
-</table>
-</div>
-<?php else: ?>
-<p class="phu">Khoa chưa có số liệu kỳ này.</p>
-<?php endif; ?>
-<?php endif; /* khoaBC */ ?>
+<script>
+(function () {
+  var wrap = document.getElementById('phan-bc');
+  if (!wrap) { return; }
+  var NAM = <?= (int)$nam ?>, KY = <?= json_encode($ky, JSON_UNESCAPED_UNICODE) ?>;
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest('#phan-bc select[data-bc-select]');
+    if (!sel) { return; }
+    var url = '/index.php?phan=bao_cao_khoa&bc=' + encodeURIComponent(sel.value)
+            + '&nam=' + NAM + '&ky=' + encodeURIComponent(KY);
+    wrap.style.opacity = '.5'; wrap.style.pointerEvents = 'none';
+    fetch(url, { headers: { 'X-Requested-With': 'fetch' }, credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) { throw new Error('http'); } return r.text(); })
+      .then(function (html) {
+        wrap.innerHTML = html;
+        wrap.style.opacity = ''; wrap.style.pointerEvents = '';
+        if (window.history && history.replaceState) {
+          var u = new URL(location.href); u.searchParams.set('bc', sel.value);
+          history.replaceState(null, '', u);
+        }
+      })
+      .catch(function () { if (sel.form) { sel.form.submit(); } });   // lỗi mạng → quay lại cách cũ
+  });
+})();
+</script>
 
 <!-- ============ Bảng từng khoa ============ -->
 <?php if (count($bangKhoa) > 1): ?>
@@ -691,7 +654,7 @@ mo_trang('Tổng quan');
       <td class="phai"><?= so($c['th'], 0) ?></td>
       <td class="phai"><?= so($c['kh'], 0) ?></td>
       <td class="phai"><strong><?= phan_tram($c['pt']) ?></strong></td>
-      <td class="phai nhan-cham"><?= phan_tram($c['thieu']) ?></td>
+      <td class="phai"><span class="nhan-cham"><?= phan_tram($c['thieu']) ?></span></td>
     </tr>
   <?php endforeach; ?>
   </tbody>
@@ -701,5 +664,33 @@ mo_trang('Tổng quan');
   <p class="phu">Còn <?= count($chamTienDo) - 12 ?> chỉ tiêu nữa —
     xem đầy đủ ở <a href="/bao-cao.php">Báo cáo</a>.</p>
 <?php endif; ?>
+<?php endif; ?>
+
+<!-- ============ Tất cả chỉ tiêu (thu gọn) — gồm cả chỉ tiêu mới thêm ============ -->
+<?php if (!empty($bang)): ?>
+<details class="tat-ca-ct" style="margin-top:1.5rem">
+  <summary style="cursor:pointer;font-weight:700;color:var(--xanh-900)">
+    Tất cả chỉ tiêu — <?= e($tenPhamVi) ?>
+    <span class="phu" style="font-weight:400">· <?= count($bang) ?> dòng · bấm để mở/đóng</span>
+  </summary>
+  <div class="cuon-ngang" style="margin-top:.75rem">
+  <table class="bang">
+    <thead><tr><th>Nội dung</th><th>Đơn vị</th><th class="phai">Thực hiện</th>
+      <th class="phai">Kế hoạch năm</th><th class="phai">%KH</th></tr></thead>
+    <tbody>
+    <?php foreach ($bang as $d): $ct = $d['ct'];
+        $le = in_array($ct['loai_gia_tri'], ['TY_LE','TRUNG_BINH'], true) ? 1 : 0; ?>
+      <tr class="<?= $d['cap'] ? 'dong-con' : '' ?>">
+        <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($ct['ten']) ?></td>
+        <td class="nho"><?= e($ct['don_vi']) ?></td>
+        <td class="phai"><?= $d['thuc_hien'] === null ? '—' : so($d['thuc_hien'], $le) ?></td>
+        <td class="phai"><?= $d['chi_tieu_nam'] === null ? '—' : so($d['chi_tieu_nam'], 0) ?></td>
+        <td class="phai"><?= $d['pt_nam'] === null ? '—' : phan_tram($d['pt_nam']) ?></td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+  </div>
+</details>
 <?php endif; ?>
 <?php dong_trang();

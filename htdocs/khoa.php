@@ -68,8 +68,8 @@ if (la_post()) {
             ghi_nhat_ky('THEM_KHOA', $ma, $ten);
             nhan_tin('ok', "Đã thêm khoa \"$ten\"."
                 . ($soCT ? " Đã gán sẵn $soCT chỉ tiêu theo mẫu khoa cùng loại — "
-                         . 'vào Danh mục chỉ tiêu để chỉnh lại cho đúng.'
-                         : ' Cần vào Danh mục chỉ tiêu để gán chỉ tiêu cho khoa này.'));
+                         . 'vào Thư viện chỉ tiêu để chỉnh lại cho đúng.'
+                         : ' Cần vào Thư viện chỉ tiêu để gán chỉ tiêu cho khoa này.'));
         }
         chuyen_huong('/khoa.php');
     }
@@ -151,8 +151,14 @@ mo_trang('Danh mục khoa');
   Số giường bệnh ở đây là mẫu số khi tính công suất sử dụng giường bệnh.
 </p>
 
+<p class="hang-nut" style="margin:.25rem 0 1rem">
+  <input type="search" class="o-tim" data-tim="#bang-khoa" data-dem="#khoa-dem"
+         placeholder="Tìm mã / tên khoa…" autocomplete="off">
+  <span id="khoa-dem" class="phu"></span>
+</p>
+
 <div class="cuon-ngang">
-<table class="bang">
+<table class="bang" id="bang-khoa">
   <thead>
     <tr>
       <th>TT</th><th>Mã</th><th>Tên khoa</th><th>Loại</th>
@@ -223,14 +229,14 @@ mo_trang('Danh mục khoa');
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="doi_trang_thai">
           <input type="hidden" name="id" value="<?= $id ?>">
-          <button class="nut nut-nho <?= (int)$k['hoat_dong'] === 1 ? 'nut-nguy' : 'nut-phu' ?>"
+          <button class="nut nut-nho <?= (int)$k['hoat_dong'] === 1 ? 'nut-canh' : 'nut-phu' ?>"
                   type="submit"><?= (int)$k['hoat_dong'] === 1 ? 'Ngừng' : 'Mở lại' ?></button>
         </form>
         <?php endif; ?>
 
         <?php if (co_quyen('khoa.xoa') && $soSL === 0 && khoa_co_du_lieu($id) === 0): ?>
         <form method="post"
-              onsubmit="return confirm('Xóa vĩnh viễn khoa <?= e($k['ma']) ?>? Không khôi phục được.')">
+              data-xac-nhan="Xóa vĩnh viễn khoa <?= e($k['ma']) ?>? Không khôi phục được." data-xac-nhan-loai="nguy">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="xoa">
           <input type="hidden" name="id" value="<?= $id ?>">
@@ -279,7 +285,7 @@ mo_trang('Danh mục khoa');
       <p class="phu" style="margin:8px 0 0">
         Mã: chữ in hoa, số, gạch dưới — sau này không nên đổi. Giường bệnh chỉ dùng cho khoa nội trú.
         Khoa mới được gán sẵn bộ chỉ tiêu giống một khoa cùng loại; sau đó vào
-        <a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> chỉnh lại cho đúng.
+        <a href="/danh-muc-chi-tieu.php">Thư viện chỉ tiêu</a> chỉnh lại cho đúng.
       </p>
       <div class="form-chan">
         <button class="nut nut-chinh" type="submit">Thêm khoa</button>

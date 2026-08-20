@@ -65,10 +65,10 @@ if (la_post()) {
             db()->commit();
 
             ghi_nhat_ky('TAO_NGUOI_DUNG', $ten, 'Vai trò: ' . $vaiTro);
-            // Không gửi được email → hiển thị mật khẩu tạm một lần duy nhất
-            nhan_tin('ok', "Đã tạo tài khoản \"{$ten}\". Mật khẩu tạm: {$mkTam} "
-                . '— hãy chép lại và giao tận tay, hệ thống sẽ không hiển thị lại. '
+            nhan_tin('ok', "Đã tạo tài khoản \"{$ten}\". "
                 . 'Người dùng bắt buộc đổi mật khẩu ở lần đăng nhập đầu.');
+            // Mật khẩu tạm hiện trong popup (có nút Copy), không nhét vào flash
+            $_SESSION['mk_moi_cap'] = ['ten' => $ten, 'mk' => $mkTam];
             $taoOK = true;
         }
         chuyen_huong('/nguoi-dung.php' . ($taoOK ? '' : '?mo_them=1'));
@@ -88,8 +88,8 @@ if (la_post()) {
                  so_lan_sai = 0, khoa_den = NULL WHERE id = ?',
                 [password_hash($mkTam, PASSWORD_DEFAULT), $id]);
             ghi_nhat_ky('CAP_LAI_MAT_KHAU', $mt['ten_dang_nhap']);
-            nhan_tin('ok', "Mật khẩu mới của \"{$mt['ten_dang_nhap']}\": {$mkTam} "
-                . '— chép lại ngay, không hiển thị lại lần nữa.');
+            nhan_tin('ok', "Đã cấp lại mật khẩu cho \"{$mt['ten_dang_nhap']}\".");
+            $_SESSION['mk_moi_cap'] = ['ten' => $mt['ten_dang_nhap'], 'mk' => $mkTam];
         }
         chuyen_huong('/nguoi-dung.php');
     }
@@ -131,6 +131,32 @@ if (la_post()) {
             ghi_nhat_ky($moi ? 'MO_TAI_KHOAN' : 'KHOA_TAI_KHOAN', $mt['ten_dang_nhap']);
             nhan_tin('ok', ($moi ? 'Đã mở lại ' : 'Đã vô hiệu hóa ') . 'tài khoản "'
                 . $mt['ten_dang_nhap'] . '".');
+        }
+        chuyen_huong('/nguoi-dung.php');
+    }
+
+    // ----- Xóa vĩnh viễn tài khoản -----
+    if ($viec === 'xoa' && co_quyen('nguoidung.xoa')) {
+        $id = (int)post('id');
+        $mt = q1('SELECT * FROM nguoi_dung WHERE id = ?', [$id]);
+        if (!$mt) {
+            nhan_tin('loi', 'Không tìm thấy tài khoản.');
+        } elseif ($id === (int)$toi['id']) {
+            nhan_tin('loi', 'Không thể tự xóa tài khoản của chính mình.');
+        } elseif (!duoc_thao_tac($mt, $laDev)) {
+            nhan_tin('loi', 'Bạn không có quyền với tài khoản này.');
+        } elseif ($mt['vai_tro'] === 'dev'
+            && (int)qVal("SELECT COUNT(*) FROM nguoi_dung WHERE vai_tro='dev'") <= 1) {
+            nhan_tin('loi', 'Không thể xóa tài khoản phát triển cuối cùng.');
+        } elseif ((int)qVal('SELECT COUNT(*) FROM so_lieu WHERE nguoi_nhap = ?', [$id]) > 0
+               || (int)qVal('SELECT COUNT(*) FROM ky WHERE nguoi_nop = ? OR nguoi_duyet = ?', [$id, $id]) > 0) {
+            nhan_tin('loi', 'Tài khoản "' . $mt['ten_dang_nhap'] . '" đã có hoạt động (nhập liệu / '
+                . 'duyệt kỳ) nên không xóa được — để giữ lịch sử, hãy dùng "Vô hiệu hóa".');
+        } else {
+            // nguoi_dung_khoa và quyen_nguoi_dung tự xóa theo ràng buộc CASCADE
+            q('DELETE FROM nguoi_dung WHERE id = ?', [$id]);
+            ghi_nhat_ky('XOA_TAI_KHOAN', $mt['ten_dang_nhap'], $mt['ho_ten']);
+            nhan_tin('ok', 'Đã xóa tài khoản "' . $mt['ten_dang_nhap'] . '".');
         }
         chuyen_huong('/nguoi-dung.php');
     }
@@ -212,8 +238,69 @@ foreach (qAll(
     $maKhoaCuaNguoi[(int)$r['id_nguoi_dung']][] = $r['ma'];
 }
 
+// Quyền đã ủy riêng cho từng người — để tick sẵn trong popup "Ủy quyền" và
+// hiện huy hiệu "+N quyền". (Bảng có thể chưa tạo ở CSDL cũ → bọc try/catch.)
+$quyenCuaNguoi = []; // id người dùng => [mã quyền đã ủy]
+try {
+    foreach (qAll('SELECT id_nguoi_dung, quyen FROM quyen_nguoi_dung') as $r) {
+        $quyenCuaNguoi[(int)$r['id_nguoi_dung']][] = $r['quyen'];
+    }
+} catch (Throwable $e) {
+    // Chưa có bảng quyen_nguoi_dung — coi như chưa ai được ủy quyền
+}
+
 mo_trang('Quản lý người dùng');
 ?>
+<?php if (!empty($_SESSION['mk_moi_cap'])):
+    $mkm = $_SESSION['mk_moi_cap']; unset($_SESSION['mk_moi_cap']); ?>
+<div class="lop-phu" id="mk-moi-cap">
+ <div class="hop-modal" role="dialog" aria-modal="true" aria-label="Mật khẩu dùng một lần">
+  <div class="modal-dau">
+    <h2>Mật khẩu dùng một lần</h2>
+    <button type="button" class="dong-tro-giup" aria-label="Đóng">&times;</button>
+  </div>
+  <div class="modal-than">
+    <p class="phu" style="margin-top:0">
+      Tài khoản <strong><?= e($mkm['ten']) ?></strong> — giao mật khẩu này tận tay.
+      <strong>Hệ thống sẽ không hiển thị lại</strong>; quên thì phải “Cấp lại MK”.
+      Người dùng bắt buộc đổi ở lần đăng nhập đầu.
+    </p>
+    <div style="display:flex;gap:8px;align-items:stretch;margin:14px 0 4px">
+      <input type="text" id="mk-tam-val" value="<?= e($mkm['mk']) ?>" readonly
+             onclick="this.select()"
+             style="flex:1;min-width:0;font:700 18px/1.2 ui-monospace,monospace;letter-spacing:2px;text-align:center;padding:12px;border:1.5px solid var(--vien,#e2e8f0);border-radius:10px;background:var(--nen-nhat,#f8fafc)">
+      <button type="button" class="nut nut-chinh" id="nut-copy-mk" style="white-space:nowrap">📋 Copy</button>
+    </div>
+    <div class="form-chan" style="margin-top:14px">
+      <button type="button" class="nut nut-phu" data-dong>Đã lưu, đóng</button>
+    </div>
+  </div>
+ </div>
+</div>
+<script>
+(function () {
+  var btn = document.getElementById('nut-copy-mk');
+  var inp = document.getElementById('mk-tam-val');
+  if (!btn || !inp) return;
+  var xong = function () {
+    btn.textContent = '✓ Đã copy';
+    setTimeout(function () { btn.textContent = '📋 Copy'; }, 1600);
+  };
+  btn.addEventListener('click', function () {
+    inp.focus(); inp.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(inp.value).then(xong, function () {
+        try { document.execCommand('copy'); } catch (e) {}
+        xong();
+      });
+    } else {
+      try { document.execCommand('copy'); } catch (e) {}
+      xong();
+    }
+  });
+})();
+</script>
+<?php endif; ?>
 <div class="dau-muc">
   <div>
     <h1>Quản lý người dùng</h1>
@@ -283,7 +370,7 @@ mo_trang('Quản lý người dùng');
             tạm khóa đến <?= date('H:i', strtotime($u['khoa_den'])) ?></span>
         <?php endif; ?>
       </td>
-      <td class="thao-tac">
+      <td class="thao-tac"><div class="nhom-tt">
         <?php if (!$sua): ?>
           <span class="phu">Không có quyền</span>
         <?php else: ?>
@@ -368,7 +455,7 @@ mo_trang('Quản lý người dùng');
           </form>
           <?php endif; ?>
 
-          <form method="post" onsubmit="return confirm('Cấp lại mật khẩu cho <?= e($u['ten_dang_nhap']) ?>?')">
+          <form method="post" data-xac-nhan="Cấp lại mật khẩu cho <?= e($u['ten_dang_nhap']) ?>?">
             <?= csrf_field() ?>
             <input type="hidden" name="viec" value="cap_lai_mk">
             <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
@@ -380,12 +467,21 @@ mo_trang('Quản lý người dùng');
               <?= csrf_field() ?>
               <input type="hidden" name="viec" value="doi_trang_thai">
               <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-              <button class="nut nut-nho <?= (int)$u['hoat_dong'] === 1 ? 'nut-nguy' : 'nut-phu' ?>"
+              <button class="nut nut-nho <?= (int)$u['hoat_dong'] === 1 ? 'nut-canh' : 'nut-phu' ?>"
                       type="submit"><?= (int)$u['hoat_dong'] === 1 ? 'Vô hiệu hóa' : 'Mở lại' ?></button>
             </form>
+            <?php if (co_quyen('nguoidung.xoa')): ?>
+            <form method="post"
+                  data-xac-nhan="Xóa vĩnh viễn tài khoản &quot;<?= e($u['ten_dang_nhap']) ?>&quot;?&#10;Không hoàn tác được." data-xac-nhan-loai="nguy">
+              <?= csrf_field() ?>
+              <input type="hidden" name="viec" value="xoa">
+              <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
+              <button class="nut nut-nho nut-nguy" type="submit">Xóa</button>
+            </form>
+            <?php endif; ?>
           <?php endif; ?>
         <?php endif; ?>
-      </td>
+      </div></td>
     </tr>
   <?php endforeach; ?>
   </tbody>
@@ -412,7 +508,7 @@ mo_trang('Quản lý người dùng');
       <select name="vai_tro" id="chon-vai-tro">
         <option value="bacsi">Bác sĩ / Người nhập</option>
         <?php if ($laDev): ?>
-          <option value="admin">Quản trị (Phòng KHTH)</option>
+          <option value="admin">Quản trị (admin)</option>
           <option value="dev">Người phát triển</option>
         <?php endif; ?>
       </select>

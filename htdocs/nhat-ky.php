@@ -3,6 +3,17 @@ require_once __DIR__ . '/app/layout.php';
 
 $toi = bat_buoc_quyen('nhatky.xem');
 
+$giuNgay = defined('NHAT_KY_GIU_NGAY') ? NHAT_KY_GIU_NGAY : 30;
+
+// Dọn thủ công (chỉ người có quyền xóa nhật ký = dev).
+if (la_post() && post('viec') === 'don_log' && co_quyen('nhatky.xoa')) {
+    kiem_tra_csrf();
+    $soXoa = don_nhat_ky_cu($giuNgay);
+    ghi_nhat_ky('DON_NHAT_KY', (string)$giuNgay . ' ngày', "$soXoa dòng");
+    nhan_tin('ok', "Đã dọn $soXoa dòng nhật ký cũ hơn $giuNgay ngày.");
+    chuyen_huong('/nhat-ky.php');
+}
+
 $trang = max(1, (int)($_GET['trang'] ?? 1));
 $moiTrang = 100;
 $loc = trim((string)($_GET['loc'] ?? ''));
@@ -30,8 +41,18 @@ mo_trang('Nhật ký hệ thống');
     <input name="loc" value="<?= e($loc) ?>" placeholder="hành động, người dùng, đối tượng">
   </label>
   <button class="nut nut-nho" type="submit">Lọc</button>
-  <span class="phu"><?= so((float)$tong) ?> bản ghi</span>
+  <span class="phu"><?= so((float)$tong) ?> bản ghi · tự dọn sau <?= (int)$giuNgay ?> ngày</span>
 </form>
+
+<?php if (co_quyen('nhatky.xoa')): ?>
+<form method="post" style="margin:-4px 0 14px">
+  <?= csrf_field() ?>
+  <input type="hidden" name="viec" value="don_log">
+  <button class="nut nut-nho nut-phu" type="submit"
+          data-xac-nhan="Dọn các dòng nhật ký cũ hơn <?= (int)$giuNgay ?> ngày?"
+          data-xac-nhan-loai="nguy">🧹 Dọn log cũ hơn <?= (int)$giuNgay ?> ngày</button>
+</form>
+<?php endif; ?>
 
 <div class="cuon-ngang">
 <table class="bang">

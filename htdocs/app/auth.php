@@ -5,7 +5,7 @@ require_once __DIR__ . '/db.php';
  * MÔ HÌNH PHÂN QUYỀN
  *
  *   dev    — quyền cao nhất, thuộc về người phát triển
- *   admin  — phòng KHTH: quản lý tài khoản, giao chỉ tiêu, duyệt/khóa kỳ
+ *   admin  — quản trị: quản lý tài khoản, giao chỉ tiêu, duyệt/khóa kỳ
  *   bacsi  — người nhập số liệu tại khoa
  *
  * Nguyên tắc: quyền gắn với VAI TRÒ (không gán lẻ cho từng người),
@@ -14,7 +14,7 @@ require_once __DIR__ . '/db.php';
 
 const VAI_TRO = [
     'dev'   => 'Người phát triển',
-    'admin' => 'Quản trị (Phòng KHTH)',
+    'admin' => 'Quản trị (admin)',
     'bacsi' => 'Bác sĩ / Người nhập',
 ];
 
@@ -25,19 +25,21 @@ const QUYEN_THEO_VAI_TRO = [
     'admin' => [
         // Tài khoản
         'nguoidung.xem', 'nguoidung.them', 'nguoidung.sua',
-        'nguoidung.doi_mat_khau', 'nguoidung.khoa',
-        // Danh mục — Phòng KHTH tự quản lý được nội dung
+        'nguoidung.doi_mat_khau', 'nguoidung.khoa', 'nguoidung.xoa',
+        // Danh mục — admin tự quản lý được nội dung
         'khoa.xem', 'khoa.them', 'khoa.sua', 'khoa.ngung',
         'chitieu.xem', 'chitieu.them', 'chitieu.sua', 'chitieu.ngung',
-        // Nghiệp vụ — KHTH nhập thay được cho khoa nộp muộn
+        // Nghiệp vụ — admin nhập thay được cho khoa nộp muộn
         'chitieu.giao', 'solieu.nhap', 'solieu.xem_tat_ca', 'solieu.nhap_excel',
         'ky.duyet', 'ky.khoa', 'ky.dat_lich', 'dieuchinh.duyet',
         'nguoidung.uy_quyen',
         // Báo cáo
-        'baocao.toan_vien', 'baocao.xuat', 'sao_luu.tai_ve',
+        'baocao.toan_vien', 'baocao.xuat', 'baocao.giam_doc', 'sao_luu.tai_ve',
         'nhatky.xem',
         // Nhận diện — đổi logo/favicon ứng dụng
         'he_thong.logo',
+        // Cấu hình các ô hiển thị trên trang chủ
+        'he_thong.trang_chu',
     ],
 
     'bacsi' => [
@@ -45,7 +47,7 @@ const QUYEN_THEO_VAI_TRO = [
         'ky.nop',
         'dieuchinh.de_xuat',
         'baocao.khoa_minh',
-        // KHÔNG có 'solieu.nhap_excel': nạp file Excel là việc của Phòng KHTH.
+        // KHÔNG có 'solieu.nhap_excel': nạp file Excel là việc của admin.
         // Khoa gõ thẳng trên web; muốn dùng Excel thì admin ủy quyền riêng.
         // Xem được định nghĩa chỉ tiêu để biết dòng nào nhập gì.
         // KHÔNG có 'khoa.xem': trang danh mục khoa hiển thị số liệu của mọi khoa.
@@ -56,7 +58,7 @@ const QUYEN_THEO_VAI_TRO = [
 /**
  * Những quyền chỉ dev mới có — admin không thể chạm tới.
  *
- * Ranh giới: Phòng KHTH thêm/sửa được NỘI DUNG chỉ tiêu và danh mục khoa,
+ * Ranh giới: admin thêm/sửa được NỘI DUNG chỉ tiêu và danh mục khoa,
  * nhưng không đụng được vào phần CẤU TRÚC (chỉ tiêu tính theo công thức,
  * xóa vĩnh viễn dữ liệu, mở lại kỳ đã khóa).
  */
@@ -70,6 +72,8 @@ const QUYEN_RIENG_DEV = [
     'nguoidung.tao_admin',
     'nhatky.xoa',
     'he_thong.cau_hinh',
+    'he_thong.reset',       // xóa toàn bộ số liệu/kế hoạch để làm lại từ đầu
+    'he_thong.bao_tri',     // bật/tắt chế độ bảo trì toàn hệ thống
 ];
 
 /**
@@ -78,7 +82,7 @@ const QUYEN_RIENG_DEV = [
  * trung bình, công suất giường bệnh và phần chống đếm trùng toàn viện.
  */
 const MA_CHI_TIEU_HE_THONG = [
-    'GB', 'NT', 'NDT', 'NDT_TB', 'CSGB',
+    'GB', 'NT', 'NDT', 'NDT_TB', 'CSGB', 'MAU_CSGB',
     'XN', 'XN_HH', 'XN_HS', 'XN_VS', 'XN_NT', 'XN_HIV',
     'XQ', 'CT', 'MRI', 'SA', 'DT', 'NS', 'DEXA',
 ];
@@ -157,7 +161,7 @@ function da_dang_nhap(): bool
  * ---------------------------------------------------------- */
 
 /**
- * Những quyền Phòng KHTH được phép ủy cho một người cụ thể.
+ * Những quyền admin được phép ủy cho một người cụ thể.
  *
  * Ví dụ giao cho một trưởng khoa quyền duyệt kỳ và đặt lịch mở kỳ,
  * mà không phải nâng người đó lên vai trò quản trị.
@@ -176,6 +180,7 @@ const QUYEN_CO_THE_UY = [
     'baocao.xuat'       => 'Xuất báo cáo Excel',
     'nhatky.xem'        => 'Xem nhật ký hệ thống',
     'sao_luu.tai_ve'    => 'Tải bản sao lưu',
+    'he_thong.trang_chu'=> 'Cấu hình ô trang chủ',
 ];
 
 /** Quyền được cấp riêng cho người đang đăng nhập. */
@@ -261,8 +266,17 @@ function bat_buoc_dang_nhap(): array
         header('Location: /dang-nhap.php?tiep=' . urlencode($_SERVER['REQUEST_URI'] ?? '/'));
         exit;
     }
-    // Buộc đổi mật khẩu lần đầu / sau khi được cấp lại
     $trangHienTai = basename($_SERVER['SCRIPT_NAME'] ?? '');
+
+    // Chế độ bảo trì: chặn theo mức. Mức 1 cho admin + whitelist vào; mức 2
+    // (khóa cứng) chỉ dev vào. Vẫn cho vào trang đăng xuất để họ thoát ra được.
+    if (function_exists('dang_bao_tri') && dang_bao_tri()
+        && !bao_tri_duoc_vao($nd)
+        && $trangHienTai !== 'dang-xuat.php') {
+        trang_bao_tri();   // render + exit
+    }
+
+    // Buộc đổi mật khẩu lần đầu / sau khi được cấp lại
     if ((int)$nd['doi_mat_khau'] === 1
         && !in_array($trangHienTai, ['doi-mat-khau.php', 'dang-xuat.php'], true)) {
         header('Location: /doi-mat-khau.php?bat_buoc=1');
@@ -454,6 +468,33 @@ function ghi_nhat_ky_tho(?int $idNguoiDung, ?string $tenDangNhap,
              $_SERVER['REMOTE_ADDR'] ?? null]);
     } catch (Throwable $e) {
         // Không để lỗi ghi nhật ký làm hỏng nghiệp vụ chính
+    }
+
+    // Tự dọn nhật ký cũ hơn NHAT_KY_GIU_NGAY — tối đa 1 lần/request và 1 lần/ngày
+    // (không cần cron). Cờ tĩnh tránh chạy lặp vì cai_dat_lay cache trong 1 request.
+    static $daThuDon = false;
+    if (!$daThuDon && function_exists('cai_dat_lay')) {
+        $daThuDon = true;
+        try {
+            $homNay = date('Y-m-d');
+            if (cai_dat_lay('nhat_ky_don_ngay') !== $homNay) {
+                cai_dat_dat('nhat_ky_don_ngay', $homNay);   // đặt cờ trước để không lặp
+                don_nhat_ky_cu(defined('NHAT_KY_GIU_NGAY') ? NHAT_KY_GIU_NGAY : 30);
+            }
+        } catch (Throwable $e) {
+            // dọn log là việc phụ, lỗi thì bỏ qua
+        }
+    }
+}
+
+/** Xóa nhật ký cũ hơn $ngay ngày. Trả về số dòng đã xóa. Portable MySQL + SQLite. */
+function don_nhat_ky_cu(int $ngay = 30): int
+{
+    $moc = date('Y-m-d H:i:s', strtotime("-$ngay days"));
+    try {
+        return q('DELETE FROM nhat_ky WHERE thoi_diem < ?', [$moc])->rowCount();
+    } catch (Throwable $e) {
+        return 0;
     }
 }
 

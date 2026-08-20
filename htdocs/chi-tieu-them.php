@@ -23,13 +23,19 @@ if ($chaMacDinh && !$khoaMacDinh) {
         'id_khoa'));
 }
 
-// Nội dung lớn kèm danh sách khoa áp dụng, để lọc phía trình duyệt
-$noiDungLon = qAll('SELECT id, ma, ten FROM chi_tieu
-                     WHERE id_cha IS NULL AND hoat_dong = 1 ORDER BY thu_tu, id');
+// Danh sách chỉ tiêu (mọi cấp) kèm khoa áp dụng, để chọn làm CHA khi thêm con.
+// Lồng không giới hạn: cha có thể là gốc hay đã là con.
+$noiDungLon = array_values(array_filter(cay_chi_tieu_day_du(),
+    fn($c) => (int)$c['hoat_dong'] === 1));
 $khoaCuaCha = [];
 foreach (qAll('SELECT id_chi_tieu, id_khoa FROM chi_tieu_ap_dung') as $r) {
     $khoaCuaCha[(int)$r['id_chi_tieu']][] = (int)$r['id_khoa'];
 }
+
+// Danh sách chỉ tiêu để chọn làm tử/mẫu trong công thức tự cấu hình
+$dsChiTieuCT = $laDev
+    ? qAll('SELECT ma, ten FROM chi_tieu WHERE hoat_dong = 1 ORDER BY thu_tu, id')
+    : [];
 
 if (la_post()) {
     kiem_tra_csrf();
@@ -88,11 +94,10 @@ if (la_post()) {
     } elseif ($ma !== '' && qVal('SELECT 1 FROM chi_tieu WHERE ma = ?', [$ma])) {
         $loi = "Mã chỉ tiêu \"$ma\" đã tồn tại.";
     } elseif ($idCha !== null) {
+        // Cha có thể ở bất kỳ cấp nào — lồng con không giới hạn.
         $cha = q1('SELECT * FROM chi_tieu WHERE id = ?', [$idCha]);
         if (!$cha) {
             $idCha = null;
-        } elseif ($cha['id_cha'] !== null) {
-            $loi = 'Chỉ lồng được hai tầng: nội dung lớn và nội dung nhỏ.';
         }
     }
 
@@ -103,16 +108,24 @@ if (la_post()) {
         if ($ma === '') {
             $ma = ma_tu_ten($ten);
         }
+        // Công thức không được lấy chính nó làm tử/mẫu (sẽ lặp vô hạn)
+        if ($f['nguon'] === 'CONG_THUC' && ($ma === $f['ct_tu'] || $ma === $f['ct_mau'])) {
+            nhan_tin('loi', 'Công thức không thể lấy chính chỉ tiêu này làm tử số hoặc mẫu số.');
+            chuyen_huong('/chi-tieu-them.php');
+        }
         $thuTu = $idCha !== null
             ? (int)qVal('SELECT COALESCE(MAX(thu_tu),0) FROM chi_tieu WHERE id = ? OR id_cha = ?',
                 [$idCha, $idCha]) + 1
             : (int)qVal('SELECT COALESCE(MAX(thu_tu),0) FROM chi_tieu') + 10;
 
         db()->beginTransaction();
-        q('INSERT INTO chi_tieu (ma, ten, don_vi, id_cha, thu_tu, loai_gia_tri, nguon, huong, phan_bo)
-           VALUES (?,?,?,?,?,?,?,?,?)',
+        q('INSERT INTO chi_tieu
+             (ma, ten, don_vi, id_cha, thu_tu, loai_gia_tri, nguon, huong, phan_bo,
+              phep_tinh, ct_tu, ct_mau, nhan_so_ngay)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
             [$ma, $ten, $donVi, $idCha, $thuTu,
-             $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo']]);
+             $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo'],
+             $f['phep_tinh'], $f['ct_tu'], $f['ct_mau'], $f['nhan_so_ngay']]);
         $idMoi = (int)db()->lastInsertId();
         foreach (array_unique($chon) as $idK) {
             q('INSERT INTO chi_tieu_ap_dung (id_chi_tieu, id_khoa) VALUES (?,?)', [$idMoi, $idK]);
@@ -144,7 +157,7 @@ if (la_post()) {
 
 mo_trang('Thêm chỉ tiêu');
 ?>
-<p class="duong-dan"><a href="/danh-muc-chi-tieu.php">Danh mục chỉ tiêu</a> › Thêm chỉ tiêu</p>
+<p class="duong-dan"><a href="/danh-muc-chi-tieu.php">Thư viện chỉ tiêu</a> › Thêm chỉ tiêu</p>
 <h1>Thêm chỉ tiêu</h1>
 
 <form method="post" id="bieu-mau-them">
@@ -227,7 +240,7 @@ mo_trang('Thêm chỉ tiêu');
               $dsK = $khoaCuaCha[(int)$c['id']] ?? []; ?>
             <option value="<?= (int)$c['id'] ?>"
                     data-khoa="<?= e(implode(',', $dsK)) ?>"
-                    <?= $chaMacDinh === (int)$c['id'] ? 'selected' : '' ?>><?= e($c['ten']) ?></option>
+                    <?= $chaMacDinh === (int)$c['id'] ? 'selected' : '' ?>><?= str_repeat('— ', (int)($c['cap'] ?? 0)) ?><?= e($c['ten']) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
@@ -279,7 +292,7 @@ mo_trang('Thêm chỉ tiêu');
       </label>
       <label>Loại giá trị
         <select name="loai_gia_tri">
-          <?php foreach (['DEM', 'TRUNG_BINH', 'TY_LE', 'HANG_SO'] as $v): ?>
+          <?php foreach (['DEM', 'TRUNG_BINH', 'TY_LE', 'HANG_SO', 'GHI_CHU'] as $v): ?>
             <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option>
           <?php endforeach; ?>
         </select>
@@ -297,8 +310,52 @@ mo_trang('Thêm chỉ tiêu');
           <option value="KHONG_CHIA"><?= e(NHAN['KHONG_CHIA']) ?></option>
         </select>
       </label>
+      <?php if ($laDev): ?>
+      <label>Nguồn số liệu
+        <select name="nguon" id="chon-nguon">
+          <option value="NHAP_TAY">Khoa nhập tay</option>
+          <option value="CONG_THUC">Tính theo công thức</option>
+        </select>
+        <small class="nhan-phu">“Công thức” = máy tự tính, khoa không nhập</small>
+      </label>
+      <?php else: ?>
+      <input type="hidden" name="nguon" value="NHAP_TAY">
+      <?php endif; ?>
     </div>
-    <input type="hidden" name="nguon" value="NHAP_TAY">
+
+    <?php if ($laDev): ?>
+    <fieldset class="nhom-khoa" id="khoi-cong-thuc" hidden style="margin-top:1rem">
+      <legend>Cấu hình công thức <small class="phu">(kết quả = Tử ÷ Mẫu, ×100 nếu là tỷ lệ %; chỉ cộng tháng đã nhập tử)</small></legend>
+      <div class="luoi-truong">
+        <label>Phép tính
+          <select name="phep_tinh">
+            <option value="TY_LE">Tỷ lệ % (A ÷ B × 100)</option>
+            <option value="THUONG">Thương (A ÷ B)</option>
+          </select>
+        </label>
+        <label>Chỉ tiêu A — tử số
+          <select name="ct_tu">
+            <option value="">— chọn chỉ tiêu —</option>
+            <?php foreach ($dsChiTieuCT as $c): ?>
+              <option value="<?= e($c['ma']) ?>"><?= e($c['ten']) ?> (<?= e($c['ma']) ?>)</option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <label>Chỉ tiêu B — mẫu số
+          <select name="ct_mau">
+            <option value="">— chọn chỉ tiêu —</option>
+            <?php foreach ($dsChiTieuCT as $c): ?>
+              <option value="<?= e($c['ma']) ?>"><?= e($c['ten']) ?> (<?= e($c['ma']) ?>)</option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <label class="o-rong" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" name="nhan_so_ngay" value="1" style="width:auto">
+          <span>Nhân mẫu với số ngày trong tháng <small class="phu">— bật cho công suất (giường×ngày, bàn mổ×ngày)</small></span>
+        </label>
+      </div>
+    </fieldset>
+    <?php endif; ?>
   </section>
 
   <p class="hang-nut">
@@ -395,6 +452,24 @@ mo_trang('Thêm chỉ tiêu');
     veLai();
   };
   veLai();
+})();
+
+// Hiện khối cấu hình công thức khi chọn nguồn "Tính theo công thức".
+(function () {
+  var nguon = document.getElementById('chon-nguon');
+  var khoi  = document.getElementById('khoi-cong-thuc');
+  if (!nguon || !khoi) { return; }
+  var loai   = document.querySelector('[name="loai_gia_tri"]');
+  var phanBo = document.querySelector('[name="phan_bo"]');
+  function ve() {
+    var ct = nguon.value === 'CONG_THUC';
+    khoi.hidden = !ct;
+    // Loại giá trị & phân bổ do công thức tự quyết, khóa lại cho đỡ rối.
+    if (loai)   { loai.disabled = ct; }
+    if (phanBo) { phanBo.disabled = ct; }
+  }
+  nguon.addEventListener('change', ve);
+  ve();
 })();
 </script>
 <?php dong_trang();

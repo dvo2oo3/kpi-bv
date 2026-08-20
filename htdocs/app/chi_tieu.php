@@ -20,7 +20,7 @@ require_once __DIR__ . '/helpers.php';
  * Danh mục
  * ========================================================== */
 
-/** Toàn bộ danh mục chỉ tiêu, đánh chỉ mục theo id. */
+/** Toàn bộ thư viện chỉ tiêu, đánh chỉ mục theo id. */
 function tat_ca_chi_tieu(): array
 {
     static $ds = null;
@@ -45,7 +45,33 @@ function chi_tieu_theo_ma(string $ma): ?array
     return null;
 }
 
-/** Các chỉ tiêu áp dụng cho một khoa, đã sắp theo cây (cha rồi tới con). */
+/**
+ * Khi tổng hợp toàn viện cho một chỉ tiêu chuẩn (mã $ma), cần cộng cả số liệu
+ * của những chỉ tiêu RIÊNG mà khoa khai báo "gộp vào" nó (gop_vao = $ma).
+ * Trả về danh sách id: chính nó + các chỉ tiêu gộp vào.
+ */
+function ids_gop_vao(string $ma): array
+{
+    $ids = [];
+    $chinh = chi_tieu_theo_ma($ma);
+    if ($chinh) {
+        $ids[] = (int)$chinh['id'];
+    }
+    foreach (tat_ca_chi_tieu() as $ct) {
+        if (($ct['gop_vao'] ?? null) === $ma) {
+            $ids[] = (int)$ct['id'];
+        }
+    }
+    return $ids;
+}
+
+/** Các chỉ tiêu áp dụng cho một khoa, đã sắp theo cây (cha → con → cháu…).
+ *  Lồng KHÔNG giới hạn số cấp; 'cap' là độ sâu (gốc = 0).
+ *
+ *  Thứ tự sắp theo chi_tieu_ap_dung.thu_tu — thứ tự RIÊNG của khoa; chỉ tiêu nào
+ *  chưa đặt riêng (thu_tu = 0) thì lùi về thứ tự thư viện (chi_tieu.thu_tu). Nhờ
+ *  vậy sắp xếp ở một khoa không làm xáo trộn thứ tự của khoa khác. Trường 'thu_tu'
+ *  trả về đã là thứ tự hiệu dụng của khoa (để giao diện/báo cáo hiển thị đúng). */
 function chi_tieu_cua_khoa(int $idKhoa): array
 {
     static $bo_nho = [];
@@ -53,27 +79,210 @@ function chi_tieu_cua_khoa(int $idKhoa): array
         return $bo_nho[$idKhoa];
     }
 
+    // id_chi_tieu => thứ tự riêng của khoa (0 = chưa đặt).
     $ap = [];
-    foreach (qAll('SELECT id_chi_tieu FROM chi_tieu_ap_dung WHERE id_khoa = ?', [$idKhoa]) as $r) {
-        $ap[(int)$r['id_chi_tieu']] = true;
+    foreach (qAll('SELECT id_chi_tieu, thu_tu FROM chi_tieu_ap_dung WHERE id_khoa = ?', [$idKhoa]) as $r) {
+        $ap[(int)$r['id_chi_tieu']] = (int)$r['thu_tu'];
     }
 
     $tatCa = tat_ca_chi_tieu();
-    $ketQua = [];
+    // Thứ tự hiệu dụng: riêng khoa nếu >0, không thì lùi về thứ tự thư viện.
+    $ttKhoa = fn(int $id): int => ($ap[$id] ?? 0) > 0 ? $ap[$id] : (int)($tatCa[$id]['thu_tu'] ?? 0);
+    // Sắp một danh sách id anh em theo thứ tự hiệu dụng (chốt bằng thư viện rồi id).
+    $sapAnhEm = function (array $ids) use ($ttKhoa, $tatCa): array {
+        usort($ids, function (int $a, int $b) use ($ttKhoa, $tatCa): int {
+            $va = $ttKhoa($a); $vb = $ttKhoa($b);
+            if ($va !== $vb) { return $va <=> $vb; }
+            $la = (int)($tatCa[$a]['thu_tu'] ?? 0); $lb = (int)($tatCa[$b]['thu_tu'] ?? 0);
+            return $la !== $lb ? $la <=> $lb : $a <=> $b;
+        });
+        return $ids;
+    };
+
+    // Gom con theo cha, mỗi nhóm sắp theo thứ tự riêng của khoa.
+    $conCua = [];
     foreach ($tatCa as $ct) {
-        if ($ct['id_cha'] !== null || !isset($ap[$ct['id']])) {
-            continue;   // vòng ngoài chỉ duyệt chỉ tiêu gốc
-        }
-        $ct['cap'] = 0;
-        $ketQua[] = $ct;
-        foreach ($tatCa as $con) {
-            if ($con['id_cha'] === $ct['id'] && isset($ap[$con['id']])) {
-                $con['cap'] = 1;
-                $ketQua[] = $con;
-            }
+        $id = (int)$ct['id'];
+        if ($ct['id_cha'] !== null && isset($ap[$id])) {
+            $conCua[(int)$ct['id_cha']][] = $id;
         }
     }
+    foreach ($conCua as &$ids) { $ids = $sapAnhEm($ids); }
+    unset($ids);
+
+    // Gốc = chỉ tiêu áp dụng có id_cha null, cũng sắp theo thứ tự riêng của khoa.
+    $goc = [];
+    foreach ($tatCa as $ct) {
+        if ($ct['id_cha'] === null && isset($ap[(int)$ct['id']])) {
+            $goc[] = (int)$ct['id'];
+        }
+    }
+    $goc = $sapAnhEm($goc);
+
+    $ketQua = [];
+    $duyet = function (int $id, int $cap) use (&$duyet, &$ketQua, &$conCua, $tatCa, $ttKhoa) {
+        $ct = $tatCa[$id];
+        $ct['cap']    = $cap;
+        $ct['thu_tu'] = $ttKhoa($id);   // trả về thứ tự RIÊNG của khoa (số mốc để sắp)
+        $ketQua[] = $ct;
+        foreach ($conCua[$id] ?? [] as $cid) {
+            $duyet($cid, $cap + 1);      // duyệt sâu: cháu, chắt…
+        }
+    };
+    foreach ($goc as $id) {
+        $duyet($id, 0);
+    }
+
+    // 'vi_tri' = số thứ hạng 1,2,3… trong nhóm anh em (gốc tính theo gốc, con theo
+    // các con cùng cha) — để giao diện hiển thị vị trí thân thiện, không phải số mốc.
+    $dem = [];
+    foreach ($ketQua as &$row) {
+        $k = $row['id_cha'] === null ? 'goc' : (int)$row['id_cha'];
+        $dem[$k] = ($dem[$k] ?? 0) + 1;
+        $row['vi_tri'] = $dem[$k];
+    }
+    unset($row);
+
     return $bo_nho[$idKhoa] = $ketQua;
+}
+
+/**
+ * Đánh lại thu_tu toàn bộ cây thành bước đều 10 (10, 20, 30…) theo ĐÚNG thứ tự
+ * hiển thị hiện tại (duyệt cây DFS). Giữ nguyên trật tự, chỉ làm sạch con số —
+ * gọi sau khi kéo đổi vị trí / xóa để số không bị nhảy hay để lại lỗ hổng.
+ */
+function danh_lai_thu_tu(): void
+{
+    $tatCa = qAll('SELECT id, id_cha FROM chi_tieu ORDER BY thu_tu, id');
+    $con = [];
+    foreach ($tatCa as $r) {
+        if ($r['id_cha'] !== null) { $con[(int)$r['id_cha']][] = (int)$r['id']; }
+    }
+    $order = [];
+    $dfs = function (int $id) use (&$dfs, &$con, &$order) {
+        $order[] = $id;
+        foreach ($con[$id] ?? [] as $c) { $dfs($c); }
+    };
+    foreach ($tatCa as $r) {
+        if ($r['id_cha'] === null) { $dfs((int)$r['id']); }
+    }
+
+    $tuMo = !db()->inTransaction();      // tự mở giao dịch nếu chưa có
+    if ($tuMo) { db()->beginTransaction(); }
+    $tt = 10;
+    foreach ($order as $id) {
+        q('UPDATE chi_tieu SET thu_tu = ? WHERE id = ?', [$tt, $id]);
+        $tt += 10;
+    }
+    if ($tuMo) { db()->commit(); }
+}
+
+/** Độ sâu của một chỉ tiêu trong cây (gốc = 0). Có chặn vòng lặp. */
+function cap_cua_ct(int $id): int
+{
+    $tatCa = tat_ca_chi_tieu();
+    $cap = 0;
+    $cur = $tatCa[$id] ?? null;
+    while ($cur && $cur['id_cha'] !== null && $cap < 30) {
+        $cap++;
+        $cur = $tatCa[(int)$cur['id_cha']] ?? null;
+    }
+    return $cap;
+}
+
+/** Tất cả id hậu duệ (con, cháu, chắt…) của một chỉ tiêu. */
+function hau_due_ids(int $id): array
+{
+    $conCua = [];
+    foreach (tat_ca_chi_tieu() as $ct) {
+        if ($ct['id_cha'] !== null) {
+            $conCua[(int)$ct['id_cha']][] = (int)$ct['id'];
+        }
+    }
+    $out = [];
+    $duyet = function (int $id) use (&$duyet, &$out, &$conCua) {
+        foreach ($conCua[$id] ?? [] as $con) {
+            $out[] = $con;
+            $duyet($con);
+        }
+    };
+    $duyet($id);
+    return $out;
+}
+
+/** Toàn bộ chỉ tiêu ĐANG DÙNG theo thứ tự cây, mỗi phần tử có 'cap' (độ sâu). */
+function cay_tat_ca(): array
+{
+    $conCua = [];
+    foreach (tat_ca_chi_tieu() as $ct) {
+        if ($ct['id_cha'] !== null) {
+            $conCua[(int)$ct['id_cha']][] = $ct;
+        }
+    }
+    $out = [];
+    $duyet = function (array $ct, int $cap) use (&$duyet, &$out, &$conCua) {
+        $ct['cap'] = $cap;
+        $out[] = $ct;
+        foreach ($conCua[$ct['id']] ?? [] as $con) {
+            $duyet($con, $cap + 1);
+        }
+    };
+    foreach (tat_ca_chi_tieu() as $ct) {
+        if ($ct['id_cha'] === null) {
+            $duyet($ct, 0);
+        }
+    }
+    return $out;
+}
+
+/** Bản đồ id => số thứ hạng 1,2,3… trong nhóm anh em của THƯ VIỆN (thứ tự chung).
+ *  Tính trên TOÀN BỘ chỉ tiêu (kể cả ngừng dùng) theo đúng thứ tự thư viện. */
+function vi_tri_thu_vien(int $id): int
+{
+    static $map = null;
+    if ($map === null) {
+        $map = [];
+        $dem = [];
+        foreach (qAll('SELECT id, id_cha FROM chi_tieu ORDER BY thu_tu, id') as $r) {
+            $k = $r['id_cha'] === null ? 'goc' : (int)$r['id_cha'];
+            $dem[$k] = ($dem[$k] ?? 0) + 1;
+            $map[(int)$r['id']] = $dem[$k];
+        }
+    }
+    return $map[$id] ?? 0;
+}
+
+/** Chuyển một chỉ tiêu tới VỊ TRÍ thứ $viTri (1-based) trong nhóm anh em thư viện.
+ *  Chỉ đảo chỗ trong nhóm (dùng lại đúng tập số mốc của nhóm nên không đụng nhóm
+ *  khác), sau đó đánh lại số cả cây cho gọn. */
+function dat_vi_tri_thu_vien(int $id, int $viTri): void
+{
+    $ct = q1('SELECT id, id_cha FROM chi_tieu WHERE id = ?', [$id]);
+    if (!$ct) { return; }
+    $cha = $ct['id_cha'] !== null ? (int)$ct['id_cha'] : null;
+
+    $anhEm = $cha === null
+        ? qAll('SELECT id, thu_tu FROM chi_tieu WHERE id_cha IS NULL ORDER BY thu_tu, id')
+        : qAll('SELECT id, thu_tu FROM chi_tieu WHERE id_cha = ? ORDER BY thu_tu, id', [$cha]);
+    if (count($anhEm) < 2) { return; }
+
+    $ids  = array_map(fn($r) => (int)$r['id'], $anhEm);
+    $slot = array_map(fn($r) => (int)$r['thu_tu'], $anhEm);
+    sort($slot);   // giữ nguyên tập số mốc của nhóm
+
+    $cur = array_search($id, $ids, true);
+    if ($cur === false) { return; }
+    array_splice($ids, $cur, 1);
+    $viTri = max(1, min($viTri, count($ids) + 1));
+    array_splice($ids, $viTri - 1, 0, [$id]);
+
+    $tuMo = !db()->inTransaction();
+    if ($tuMo) { db()->beginTransaction(); }
+    foreach ($ids as $k => $sid) {
+        q('UPDATE chi_tieu SET thu_tu = ? WHERE id = ?', [$slot[$k], $sid]);
+    }
+    danh_lai_thu_tu();   // dồn lại số cả cây cho gọn (đang trong giao dịch)
+    if ($tuMo) { db()->commit(); }
 }
 
 /** Các chỉ tiêu con trực tiếp. */
@@ -102,9 +311,13 @@ function so_ngay_trong_nam(int $nam): int
     return (int)date('L', mktime(0, 0, 0, 1, 1, $nam)) === 1 ? 366 : 365;
 }
 
-/** Danh sách tháng của một kỳ. Ví dụ: 'Q1' => [1,2,3], '6T' => [1..6] */
+/** Danh sách tháng của một kỳ. Ví dụ: 'Q1' => [1,2,3], '6T' => [1..6], '7T' => [1..7] */
 function cac_thang_cua_ky(string $ky): array
 {
+    // "N T" = lũy kế N tháng đầu năm (3T, 6T, 7T, 9T… — bất kỳ N nào)
+    if (preg_match('/^(\d{1,2})T$/', $ky, $m)) {
+        return range(1, min(12, max(1, (int)$m[1])));
+    }
     return match ($ky) {
         'T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'
                 => [(int)substr($ky, 1)],
@@ -124,6 +337,9 @@ function ten_ky(string $ky): string
 {
     if (preg_match('/^T(\d+)$/', $ky, $m)) {
         return 'Tháng ' . $m[1];
+    }
+    if (preg_match('/^(\d{1,2})T$/', $ky, $m)) {
+        return $m[1] . ' tháng';
     }
     return match ($ky) {
         'Q1' => 'Quý I', 'Q2' => 'Quý II', 'Q3' => 'Quý III', 'Q4' => 'Quý IV',
@@ -180,14 +396,18 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
     }
 
     if ($ct['nguon'] === 'TONG_CON') {
-        $tong = null;
-        foreach (con_cua($idChiTieu, $idKhoa) as $con) {
-            $v = gia_tri_thang($nam, $thang, $idKhoa, $con['id']);
-            if ($v !== null) {
-                $tong = ($tong ?? 0) + $v;
+        $con = con_cua($idChiTieu, $idKhoa);
+        if ($con) {                       // có con trong khoa → cộng các con
+            $tong = null;
+            foreach ($con as $c) {
+                $v = gia_tri_thang($nam, $thang, $idKhoa, $c['id']);
+                if ($v !== null) {
+                    $tong = ($tong ?? 0) + $v;
+                }
             }
+            return $tong;
         }
-        return $tong;
+        // Không có con nào trong khoa này → coi như nhập tay (đọc số liệu thô bên dưới)
     }
 
     if ($ct['nguon'] === 'CONG_THUC') {
@@ -196,6 +416,24 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
 
     $tho = so_lieu_tho($nam, $idKhoa);
     return $tho[$idChiTieu][$thang] ?? null;
+}
+
+/**
+ * Ô này bác sĩ NHẬP TAY được không (trong bối cảnh một khoa)?
+ *   - NHAP_TAY  : luôn nhập.
+ *   - TONG_CON  : chỉ nhập khi KHÔNG có con nào trong khoa (tránh dòng "tổng của
+ *                 con" mà rỗng con → không nhập được, cũng không tính được).
+ *   - CONG_THUC : không (hệ thống tự tính).
+ */
+function nhap_tay_duoc(array $ct, int $idKhoa): bool
+{
+    if (($ct['nguon'] ?? '') === 'NHAP_TAY') {
+        return true;
+    }
+    if (($ct['nguon'] ?? '') === 'TONG_CON') {
+        return count(con_cua((int)$ct['id'], $idKhoa)) === 0;
+    }
+    return false;
 }
 
 /**
@@ -216,7 +454,8 @@ function gia_tri_luy_ke(int $nam, array $cacThang, int $idKhoa, int $idChiTieu):
         return tinh_cong_thuc($ct['ma'], $nam, $cacThang, $idKhoa);
     }
 
-    if ($ct['loai_gia_tri'] === 'HANG_SO') {
+    // HANG_SO và GHI_CHU: không cộng dồn — lấy giá trị tháng gần nhất có nhập.
+    if (in_array($ct['loai_gia_tri'], ['HANG_SO', 'GHI_CHU'], true)) {
         $cuoi = null;
         foreach ($cacThang as $t) {
             $v = gia_tri_thang($nam, $t, $idKhoa, $idChiTieu);
@@ -242,11 +481,105 @@ function gia_tri_luy_ke(int $nam, array $cacThang, int $idKhoa, int $idChiTieu):
  * ========================================================== */
 
 /**
- * Các chỉ tiêu dẫn xuất. Không dùng eval — chỉ nhận diện theo mã,
- * để không ai chèn được biểu thức lạ vào cơ sở dữ liệu.
+ * Mô tả công thức ngắn gọn để chú thích trên giao diện (chỉ tiêu tự tính).
+ * Trả về null với chỉ tiêu nhập tay / cộng con.
+ */
+function mo_ta_cong_thuc(array $ct): ?string
+{
+    if (($ct['nguon'] ?? '') !== 'CONG_THUC') {
+        return null;
+    }
+    // Công thức tự cấu hình: dựng chuỗi từ tử/mẫu đã chọn
+    if (!empty($ct['phep_tinh']) && !empty($ct['ct_tu']) && !empty($ct['ct_mau'])) {
+        $tu  = chi_tieu_theo_ma($ct['ct_tu']);
+        $mau = chi_tieu_theo_ma($ct['ct_mau']);
+        $tenTu  = $tu  ? $tu['ten']  : $ct['ct_tu'];
+        $tenMau = $mau ? $mau['ten'] : $ct['ct_mau'];
+        $mauStr = !empty($ct['nhan_so_ngay']) ? "($tenMau × số ngày)" : $tenMau;
+        return $ct['phep_tinh'] === 'TY_LE' ? "$tenTu ÷ $mauStr × 100" : "$tenTu ÷ $mauStr";
+    }
+    // Mã hệ thống cài sẵn
+    return match ($ct['ma']) {
+        'CSGB'    => 'Ngày điều trị nội trú ÷ (giường bệnh × số ngày) × 100',
+        'MAU_CSGB'=> 'Giường bệnh × số ngày (mẫu số của công suất)',
+        'NDT_TB'  => 'Ngày điều trị nội trú ÷ số bệnh nhân nội trú',
+        default  => 'máy tự tính từ các chỉ tiêu khác',
+    };
+}
+
+/**
+ * Công thức TỰ CẤU HÌNH.
+ *
+ * Không dùng eval: người dùng không gõ biểu thức mà CHỌN từ menu — phép tính
+ * (tỷ lệ / thương), chỉ tiêu tử, chỉ tiêu mẫu. Ở đây chỉ đọc lại các lựa chọn
+ * đó (đã lưu trong bảng chi_tieu) và ráp số của đúng khoa vào.
+ *
+ *   ket_qua = tu / mau          (×100 nếu phep_tinh = 'TY_LE')
+ *   mau     = Σ mẫu các tháng ĐÃ NHẬP tử  (× số ngày nếu nhan_so_ngay = 1)
+ *
+ * Mẫu chỉ cộng những tháng mà tử đã có số liệu — cùng nguyên tắc "chỉ tính
+ * tháng đã nhập" như công suất giường bệnh, tránh giữa năm bị loãng.
+ */
+function tinh_cong_thuc_cau_hinh(array $ct, int $nam, array $cacThang, int $idKhoa): ?float
+{
+    $ctTu  = !empty($ct['ct_tu'])  ? chi_tieu_theo_ma($ct['ct_tu'])  : null;
+    $ctMau = !empty($ct['ct_mau']) ? chi_tieu_theo_ma($ct['ct_mau']) : null;
+    if (!$ctTu || !$ctMau) {
+        return null;   // thiếu chỉ tiêu tham chiếu -> chưa tính được
+    }
+
+    $tu = gia_tri_luy_ke($nam, $cacThang, $idKhoa, $ctTu['id']);
+    if ($tu === null) {
+        return null;   // khoa chưa nhập tử -> chưa có công suất
+    }
+
+    // Mẫu là hằng số (vd số bàn mổ, số giường): lấy giá trị gần nhất cho mọi tháng
+    $mauHangSo = $ctMau['loai_gia_tri'] === 'HANG_SO'
+        ? gia_tri_luy_ke($nam, $cacThang, $idKhoa, $ctMau['id'])
+        : null;
+
+    $nhanNgay = !empty($ct['nhan_so_ngay']);
+    $mau = 0.0;
+    foreach ($cacThang as $t) {
+        if (gia_tri_thang($nam, $t, $idKhoa, $ctTu['id']) === null) {
+            continue;   // tháng chưa nhập tử thì không đưa vào mẫu
+        }
+        $vMau = $mauHangSo !== null ? $mauHangSo : gia_tri_thang($nam, $t, $idKhoa, $ctMau['id']);
+        if ($vMau === null) {
+            continue;
+        }
+        $mau += $nhanNgay ? $vMau * so_ngay_thang($nam, $t) : $vMau;
+    }
+    if ($mau <= 0) {
+        return null;
+    }
+    return $ct['phep_tinh'] === 'TY_LE' ? $tu / $mau * 100 : $tu / $mau;
+}
+
+/**
+ * Các chỉ tiêu dẫn xuất. Không dùng eval.
+ *
+ * Chỉ tiêu do người dùng tự tạo mang sẵn cấu hình (phep_tinh, ct_tu, ct_mau)
+ * -> tính theo cấu hình. Còn các mã hệ thống cũ (CSGB, NDT_TB…) vẫn tính theo
+ * nhánh gắn cứng bên dưới để không phá dữ liệu đang chạy.
  */
 function tinh_cong_thuc(string $ma, int $nam, array $cacThang, int $idKhoa): ?float
 {
+    static $dangTinh = [];
+    if (isset($dangTinh[$ma])) {
+        return null;   // chặn tham chiếu vòng (A trỏ B, B trỏ A)
+    }
+
+    $ctNay = chi_tieu_theo_ma($ma);
+    if ($ctNay && !empty($ctNay['phep_tinh']) && !empty($ctNay['ct_tu']) && !empty($ctNay['ct_mau'])) {
+        $dangTinh[$ma] = true;
+        try {
+            return tinh_cong_thuc_cau_hinh($ctNay, $nam, $cacThang, $idKhoa);
+        } finally {
+            unset($dangTinh[$ma]);
+        }
+    }
+
     $ctNDT = chi_tieu_theo_ma('NDT');
     $ctNT  = chi_tieu_theo_ma('NT');
     $ctGB  = chi_tieu_theo_ma('GB');
@@ -287,6 +620,25 @@ function tinh_cong_thuc(string $ma, int $nam, array $cacThang, int $idKhoa): ?fl
                 $mau += $gb * so_ngay_thang($nam, $t);
             }
             return $mau > 0 ? $ngay / $mau * 100 : null;
+
+        // Mẫu số của công suất giường bệnh = Σ (giường × số ngày) các tháng ĐÃ nhập
+        // ngày điều trị — hiện ra để đối chiếu (giống cột "Mẫu của công suất" trong Excel).
+        case 'MAU_CSGB':
+            if (!$ctNDT || !$ctGB) {
+                return null;
+            }
+            $mau = 0.0;
+            foreach ($cacThang as $t) {
+                if (gia_tri_thang($nam, $t, $idKhoa, $ctNDT['id']) === null) {
+                    continue;   // tháng chưa nhập ngày điều trị thì không tính (giống công suất)
+                }
+                $gb = gia_tri_thang($nam, $t, $idKhoa, $ctGB['id']);
+                if ($gb === null) {
+                    $gb = (float)qVal('SELECT giuong_benh FROM khoa WHERE id = ?', [$idKhoa]);
+                }
+                $mau += $gb * so_ngay_thang($nam, $t);
+            }
+            return $mau > 0 ? $mau : null;
     }
     return null;
 }
@@ -437,6 +789,10 @@ function nang_luc_theo_giuong_benh(int $nam, int $idKhoa, string $maChiTieu): ?f
  */
 function danh_gia_kpi(array $ct, ?float $thucHien, ?float $chiTieu): array
 {
+    // Loại "Ghi chú" chỉ để hiển thị — không chấm đạt/không đạt.
+    if (($ct['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+        return ['phan_tram' => null, 'danh_gia' => 'na', 'mo_ta' => 'Ghi chú — không đánh giá'];
+    }
     if ($thucHien === null || $chiTieu === null || abs($chiTieu) < 1e-9) {
         return ['phan_tram' => null, 'danh_gia' => 'na', 'mo_ta' => 'Chưa đủ dữ liệu'];
     }
@@ -490,7 +846,7 @@ function danh_gia_kpi(array $ct, ?float $thucHien, ?float $chiTieu): array
  * Cửa sổ mở kỳ nhập liệu.
  *
  * Thứ tự ưu tiên:
- *   1. Lịch riêng Phòng KHTH đặt cho chính khoa này
+ *   1. Lịch riêng admin đặt cho chính khoa này
  *   2. Lịch chung đặt cho mọi khoa
  *   3. Quy tắc mặc định khi chưa đặt lịch nào:
  *      mở từ ngày 1 của tháng tới hết ngày 5 tháng sau
@@ -540,7 +896,7 @@ function ban_ghi_ky(int $nam, int $thang, int $idKhoa): ?array
 
 /**
  * Kỳ có đang trong thời gian cho nhập không.
- * Gia hạn riêng (ky.mo_den) đè lên lịch — dùng khi Phòng KHTH trả lại
+ * Gia hạn riêng (ky.mo_den) đè lên lịch — dùng khi admin trả lại
  * cho khoa nhập bổ sung sau khi đã quá hạn chung.
  */
 function trong_cua_so(int $nam, int $thang, int $idKhoa): bool
@@ -599,7 +955,7 @@ function ten_trang_thai(string $tt): string
  * Khoa có được sửa số liệu kỳ này không?
  *
  * Còn trong cửa sổ thì sửa thoải mái, kể cả đã bấm Nộp — nộp rồi phát hiện
- * sai vẫn sửa lại được, không phải xin Phòng KHTH trả lại.
+ * sai vẫn sửa lại được, không phải xin admin trả lại.
  * Đã duyệt hoặc đã khóa thì dừng, chỉ còn đường bút toán điều chỉnh.
  */
 function ky_cho_sua(int $nam, int $thang, int $idKhoa): bool

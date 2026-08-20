@@ -23,6 +23,11 @@ function db(): PDO
         ]);
         if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
             $pdo->exec('PRAGMA foreign_keys = ON');
+            $pdo->exec('PRAGMA busy_timeout = 8000');   // chờ khóa tối đa 8s thay vì lỗi ngay
+        } else {
+            // Máy chủ (InfinityFree) chạy giờ UTC — đặt múi giờ Việt Nam để
+            // CURRENT_TIMESTAMP/NOW() ra đúng giờ (đăng nhập cuối, nhật ký, nhập liệu…).
+            $pdo->exec("SET time_zone = '+07:00'");
         }
     } catch (PDOException $e) {
         if (CHE_DO_GO_LOI) {

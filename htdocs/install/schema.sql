@@ -83,19 +83,33 @@ CREATE TABLE IF NOT EXISTS chi_tieu (
   don_vi       VARCHAR(20)  NOT NULL DEFAULT '',
   id_cha       INT          NULL,
   thu_tu       INT          NOT NULL DEFAULT 0,
-  loai_gia_tri ENUM('DEM','TRUNG_BINH','TY_LE','HANG_SO') NOT NULL DEFAULT 'DEM',
+  loai_gia_tri ENUM('DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU') NOT NULL DEFAULT 'DEM',
   nguon        ENUM('NHAP_TAY','TONG_CON','CONG_THUC')    NOT NULL DEFAULT 'NHAP_TAY',
   huong        ENUM('CAO_TOT','THAP_TOT','DICH_CO_DINH')  NOT NULL DEFAULT 'CAO_TOT',
   phan_bo      ENUM('THEO_NGAY','KHONG_CHIA')             NOT NULL DEFAULT 'THEO_NGAY',
+  -- Công thức tự cấu hình (khi nguon='CONG_THUC' và không phải mã hệ thống):
+  --   ket_qua = ct_tu / mau  (×100 nếu phep_tinh='TY_LE'); mau nhân số ngày nếu nhan_so_ngay=1
+  phep_tinh    VARCHAR(10)  NULL,   -- 'TY_LE' | 'THUONG'
+  ct_tu        VARCHAR(30)  NULL,   -- mã chỉ tiêu tử số
+  ct_mau       VARCHAR(30)  NULL,   -- mã chỉ tiêu mẫu số
+  nhan_so_ngay TINYINT(1)   NOT NULL DEFAULT 0,
+  -- Thư viện chuẩn: la_chuan=1 là chỉ tiêu dùng chung (lên dashboard/tổng hợp),
+  -- =0 là chỉ tiêu riêng của khoa. gop_vao = mã chỉ tiêu chuẩn để cộng số liệu vào.
+  la_chuan     TINYINT(1)   NOT NULL DEFAULT 1,
+  gop_vao      VARCHAR(30)  NULL,
+  mo_ta        VARCHAR(255) NULL,      -- mô tả / ghi chú quản lý (chữ nhạt dưới tên)
   hoat_dong    TINYINT(1)   NOT NULL DEFAULT 1,
   UNIQUE KEY uq_ct_ma (ma),
   KEY idx_ct_cha (id_cha)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Chỉ tiêu nào áp dụng cho khoa nào
+-- Chỉ tiêu nào áp dụng cho khoa nào.
+-- thu_tu: thứ tự RIÊNG của chỉ tiêu trong khoa này (0 = chưa đặt riêng → lùi về
+-- thứ tự thư viện chi_tieu.thu_tu). Nhờ vậy sắp xếp ở một khoa không ảnh hưởng khoa khác.
 CREATE TABLE IF NOT EXISTS chi_tieu_ap_dung (
   id_chi_tieu INT NOT NULL,
   id_khoa     INT NOT NULL,
+  thu_tu      INT NOT NULL DEFAULT 0,
   PRIMARY KEY (id_chi_tieu, id_khoa),
   KEY idx_ctad_khoa (id_khoa),
   CONSTRAINT fk_ctad_ct   FOREIGN KEY (id_chi_tieu) REFERENCES chi_tieu(id) ON DELETE CASCADE,
@@ -150,7 +164,7 @@ CREATE TABLE IF NOT EXISTS ky (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -------------------------------------------------------------
--- 5b. Lịch mở kỳ nhập liệu — do Phòng KHTH đặt
+-- 5b. Lịch mở kỳ nhập liệu — do admin đặt
 --
 --   id_khoa = 0  : áp dụng cho MỌI khoa
 --   id_khoa > 0  : lịch riêng của một khoa, đè lên lịch chung
@@ -173,7 +187,7 @@ CREATE TABLE IF NOT EXISTS lich_ky (
 -- -------------------------------------------------------------
 -- 5c. Quyền cấp riêng cho từng người
 --
--- Ngoài quyền theo vai trò, Phòng KHTH có thể ủy quyền một số việc
+-- Ngoài quyền theo vai trò, admin có thể ủy quyền một số việc
 -- cho người cụ thể (ví dụ giao cho một trưởng khoa quyền duyệt kỳ).
 -- Không cấp được các quyền dành riêng cho người phát triển.
 -- -------------------------------------------------------------

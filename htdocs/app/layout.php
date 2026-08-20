@@ -6,9 +6,9 @@ require_once __DIR__ . '/cai_dat.php';
 function menu_chinh(): array
 {
     $m = [];
-    $them = function (string $url, string $ten, string $quyen) use (&$m) {
+    $them = function (string $url, string $ten, string $quyen, int $badge = 0) use (&$m) {
         if ($quyen === '' || co_quyen($quyen)) {
-            $m[] = ['url' => $url, 'ten' => $ten];
+            $m[] = ['url' => $url, 'ten' => $ten, 'badge' => $badge];
         }
     };
     $them('/', 'Trang chủ', '');
@@ -19,15 +19,40 @@ function menu_chinh(): array
     if (co_quyen('baocao.toan_vien') || co_quyen('baocao.khoa_minh')) {
         $m[] = ['url' => '/bao-cao.php', 'ten' => 'Báo cáo'];
     }
-    $them('/duyet-ky.php', 'Duyệt kỳ', 'ky.duyet');
+    $them('/bao-cao-gd.php', 'Xuất báo cáo', 'baocao.giam_doc');
+    // Badge trên tab "Duyệt kỳ" = số việc cần admin xử lý:
+    //   kỳ đang chờ duyệt (DA_NOP) + khoa xin mở lại (ghi_chu 'YC:')
+    $soChoDuyet = co_quyen('ky.duyet')
+        ? (int)qVal("SELECT COUNT(*) FROM ky
+                     WHERE trang_thai = 'DA_NOP'
+                        OR (ghi_chu LIKE 'YC:%' AND trang_thai IN ('DA_DUYET','DA_KHOA'))") : 0;
+    $them('/duyet-ky.php', 'Duyệt kỳ', 'ky.duyet', $soChoDuyet);
     $them('/lich-ky.php', 'Lịch mở kỳ', 'ky.dat_lich');
     $them('/giao-chi-tieu.php', 'Giao chỉ tiêu', 'chitieu.giao');
-    $them('/danh-muc-chi-tieu.php', 'Danh mục chỉ tiêu', 'chitieu.xem');
+    $them('/danh-muc-chi-tieu.php', 'Thư viện', 'chitieu.xem');
     $them('/khoa.php', 'Khoa', 'khoa.xem');
     $them('/nguoi-dung.php', 'Người dùng', 'nguoidung.xem');
     $them('/nhat-ky.php', 'Nhật ký', 'nhatky.xem');
     $them('/sao-luu.php', 'Sao lưu', 'sao_luu.tai_ve');
+    $them('/reset-du-lieu.php', 'Reset', 'he_thong.reset');
+    $them('/bao-tri.php', 'Bảo trì', 'he_thong.bao_tri');
     return $m;
+}
+
+/** Thanh sub-tab cho khu "Nhập từ Excel" (2 chức năng trong 1 tab). */
+function tab_nhap(): void
+{
+    $trang = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $tabs = [
+        'nhap-tu-excel.php'  => 'Theo mẫu chuẩn của hệ thống',
+        'nhap-file-khoa.php' => 'Theo file riêng của khoa',
+    ];
+    echo '<div class="tab-phu">';
+    foreach ($tabs as $file => $ten) {
+        $dang = $trang === $file ? ' dang' : '';
+        echo '<a class="tab-phu-muc' . $dang . '" href="/' . $file . '">' . e($ten) . '</a>';
+    }
+    echo '</div>';
 }
 
 function mo_trang(string $tieu_de, bool $co_menu = true): void
@@ -38,8 +63,12 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
         $trang = '/';
     }
     // Trang con vẫn làm sáng mục menu cha
-    if (str_starts_with($trang, '/chi-tieu-')) {
+    if (str_starts_with($trang, '/chi-tieu-') || $trang === '/gop-trung-lap.php') {
         $trang = '/danh-muc-chi-tieu.php';
+    }
+    // "Nhập file khoa" gộp vào tab "Nhập từ Excel"
+    if ($trang === '/nhap-file-khoa.php') {
+        $trang = '/nhap-tu-excel.php';
     }
     ?><!doctype html>
 <html lang="vi">
@@ -54,7 +83,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/app.css?v=48">
+<link rel="stylesheet" href="/assets/app.css?v=91">
 </head>
 <body>
 <?php if ($co_menu && $nd): ?>
@@ -143,7 +172,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
     <div class="khung">
       <?php foreach (menu_chinh() as $m): ?>
         <a href="<?= e($m['url']) ?>" <?= $m['url'] === $trang ? 'class="dang-xem" aria-current="page"' : '' ?>>
-          <?= e($m['ten']) ?>
+          <?= e($m['ten']) ?><?php if (!empty($m['badge'])): ?><span class="menu-badge" title="<?= (int)$m['badge'] ?> kỳ đang chờ duyệt"><?= (int)$m['badge'] ?></span><?php endif; ?>
         </a>
       <?php endforeach; ?>
       <!-- Chỉ hiện trong menu xổ trên điện thoại -->
@@ -161,6 +190,14 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 <?php foreach (lay_thong_bao() as $tb): ?>
   <div class="tb tb-<?= e($tb['loai']) ?>"><?= e($tb['noi_dung']) ?></div>
 <?php endforeach; ?>
+<?php if ($nd && dang_bao_tri()): ?>
+  <div class="tb tb-nguy" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <span><?= bao_tri_muc() === 2
+        ? '🔒 <strong>Đang KHÓA CỨNG</strong> — chỉ dev vào được, admin cũng bị chặn.'
+        : '🛠️ <strong>Đang bảo trì thường</strong> — chỉ admin/dev và tài khoản được chọn vào được.' ?></span>
+    <?php if (co_quyen('he_thong.bao_tri')): ?><a class="nut nut-nho" href="/bao-tri.php">Quản lý</a><?php endif; ?>
+  </div>
+<?php endif; ?>
 <?php
 }
 
@@ -236,7 +273,128 @@ document.addEventListener('keydown', function (e) {
   document.getElementById('menu-chinh')?.addEventListener('click', function (e) {
     if (e.target.closest('a')) { dinh.classList.remove('mo-menu'); }
   });
+
+  // Lăn chuột trên thanh menu (khi menu tràn ngang) = trượt ngang, khỏi cần
+  // thanh cuộn. Chỉ chặn cuộn dọc khi thực sự còn chỗ để trượt ngang.
+  var khungMenu = document.querySelector('.dinh-duoi .khung');
+  if (khungMenu) {
+    var dinhDuoi = khungMenu.closest('.dinh-duoi');
+    // Bật/tắt vệt mờ hai mép theo vị trí cuộn (còn nội dung bên nào thì mờ bên đó).
+    function capNhatMep() {
+      if (!dinhDuoi) { return; }
+      var max = khungMenu.scrollWidth - khungMenu.clientWidth;
+      dinhDuoi.classList.toggle('co-trai', khungMenu.scrollLeft > 1);
+      dinhDuoi.classList.toggle('co-phai', max > 1 && khungMenu.scrollLeft < max - 1);
+    }
+    capNhatMep();
+    requestAnimationFrame(capNhatMep);          // sau khi trình bày xong khung
+    window.addEventListener('load', capNhatMep); // chắc chắn khi tải xong hẳn
+    khungMenu.addEventListener('scroll', capNhatMep, { passive: true });
+    window.addEventListener('resize', capNhatMep);
+
+    khungMenu.addEventListener('wheel', function (e) {
+      if (e.deltaY === 0 || khungMenu.scrollWidth <= khungMenu.clientWidth) { return; }
+      var toiTrai  = khungMenu.scrollLeft <= 0 && e.deltaY < 0;
+      var toiPhai  = khungMenu.scrollLeft + khungMenu.clientWidth >= khungMenu.scrollWidth - 1 && e.deltaY > 0;
+      if (toiTrai || toiPhai) { return; }   // hết mép thì để trang cuộn dọc bình thường
+      e.preventDefault();
+      khungMenu.scrollLeft += e.deltaY;
+    }, { passive: false });
+  }
 })();
+
+/* Toast: thông báo nổi góc phải, tự tắt — thay cho alert() thô. */
+window.toast = function (msg, loai) {
+  var box = document.getElementById('toast-vung');
+  if (!box) { box = document.createElement('div'); box.id = 'toast-vung'; document.body.appendChild(box); }
+  var t = document.createElement('div');
+  t.className = 'toast toast-' + (loai || 'canh-bao');
+  t.textContent = msg;
+  box.appendChild(t);
+  requestAnimationFrame(function () { t.classList.add('hien'); });
+  setTimeout(function () {
+    t.classList.remove('hien');
+    setTimeout(function () { t.remove(); }, 300);
+  }, 3600);
+};
+
+/* xacNhan: popup Đồng ý / Hủy trong app (thay confirm() của trình duyệt).
+   Trả về Promise<boolean>. Enter = đồng ý, Esc/nền = hủy. */
+window.xacNhan = function (msg, opt) {
+  opt = opt || {};
+  return new Promise(function (resolve) {
+    var lp = document.createElement('div');
+    lp.className = 'lop-phu lop-xac-nhan';
+    var box = document.createElement('div');
+    box.className = 'hop-modal hop-xac-nhan';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    var noi = document.createElement('div'); noi.className = 'xn-noi'; noi.textContent = msg;
+    var hang = document.createElement('div'); hang.className = 'xn-nut';
+    var bHuy = document.createElement('button');
+    bHuy.type = 'button'; bHuy.className = 'nut nut-phu'; bHuy.textContent = opt.huy || 'Hủy';
+    var bOk = document.createElement('button');
+    bOk.type = 'button'; bOk.textContent = opt.ok || 'Đồng ý';
+    bOk.className = 'nut ' + (opt.loai === 'nguy' ? 'nut-do' : 'nut-chinh');
+    hang.appendChild(bHuy); hang.appendChild(bOk);
+    box.appendChild(noi); box.appendChild(hang); lp.appendChild(box);
+    document.body.appendChild(lp);
+    function dong(kq) { lp.remove(); document.removeEventListener('keydown', onKey); resolve(kq); }
+    function onKey(e) {
+      if (e.key === 'Escape') { e.preventDefault(); dong(false); }
+      else if (e.key === 'Enter') { e.preventDefault(); dong(true); }
+    }
+    bOk.addEventListener('click', function () { dong(true); });
+    bHuy.addEventListener('click', function () { dong(false); });
+    lp.addEventListener('click', function (e) { if (e.target === lp) { dong(false); } });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () { bOk.focus(); }, 30);
+  });
+};
+
+/* Form/nút có data-xac-nhan="lời nhắn" → hiện popup xác nhận trước khi gửi
+   (thay onsubmit="return confirm(...)"). data-xac-nhan-loai="nguy" cho nút đỏ. */
+document.addEventListener('submit', function (e) {
+  var f = e.target;
+  if (!f.dataset || !f.dataset.xacNhan || f.dataset.xnOk) { return; }
+  e.preventDefault();
+  if (e.stopImmediatePropagation) { e.stopImmediatePropagation(); }
+  window.xacNhan(f.dataset.xacNhan, { loai: f.dataset.xacNhanLoai }).then(function (ok) {
+    if (ok) { f.dataset.xnOk = '1'; (f.requestSubmit ? f.requestSubmit() : f.submit()); }
+  });
+}, true);
+/* Nút/link có data-xac-nhan (không phải form) → hỏi trước khi thực hiện */
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-xac-nhan]');
+  if (!b || b.tagName === 'FORM' || b.dataset.xnOk) { return; }
+  e.preventDefault();
+  if (e.stopImmediatePropagation) { e.stopImmediatePropagation(); }
+  window.xacNhan(b.dataset.xacNhan, { loai: b.dataset.xacNhanLoai }).then(function (ok) {
+    if (ok) { b.dataset.xnOk = '1'; b.click(); }
+  });
+}, true);
+
+/* Ô tìm kiếm: lọc dòng bảng ngay khi gõ (bỏ qua cột Thao tác để khỏi khớp nhầm
+   chữ trong nút). Dùng: <input class="o-tim" data-tim="#id-bang" data-dem="#id-dem"> */
+document.addEventListener('input', function (e) {
+  var o = e.target.closest('.o-tim');
+  if (!o) { return; }
+  var bang = document.querySelector(o.getAttribute('data-tim'));
+  if (!bang) { return; }
+  var tu = o.value.trim().toLowerCase();
+  var hien = 0;
+  bang.querySelectorAll('tbody > tr').forEach(function (tr) {
+    if (tr.classList.contains('dong-them-con')) { return; }   // dòng phụ, bỏ qua
+    var txt = '';
+    tr.querySelectorAll('td:not(.thao-tac)').forEach(function (td) {
+      txt += ' ' + td.textContent.toLowerCase();
+    });
+    var khop = !tu || txt.indexOf(tu) !== -1;
+    tr.style.display = khop ? '' : 'none';
+    if (khop) { hien++; }
+  });
+  var dem = o.getAttribute('data-dem') && document.querySelector(o.getAttribute('data-dem'));
+  if (dem) { dem.textContent = tu ? (hien + ' kết quả') : ''; }
+});
 
 /* Kéo giãn cột: giữ mép phải ô tiêu đề rồi kéo. Lần đầu kéo sẽ chốt bề rộng
    hiện tại của mọi cột (table-layout: fixed) để kéo được chính xác. */

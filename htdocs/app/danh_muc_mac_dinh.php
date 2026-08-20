@@ -1,11 +1,11 @@
 <?php
 /**
- * Danh mục chỉ tiêu mặc định, rút từ hai file Excel đang dùng:
+ * Thư viện chỉ tiêu mặc định, rút từ hai file Excel đang dùng:
  *   - THEO DOI THUC HIEN CHI TIEU KE HOACH KHOA 2026.xls
  *   - CHỈ TIÊU CÁC KHOA ĐẠT ĐƯỢC 6 THG ĐẦU NĂM 2026.xlsx
  *
  * Đây chỉ là bộ khởi tạo. Sau khi nạp, người phát triển sửa trực tiếp
- * trong màn hình "Danh mục chỉ tiêu"; file này không đọc lại nữa.
+ * trong màn hình "Thư viện chỉ tiêu"; file này không đọc lại nữa.
  *
  * ap_dung:  '*'         mọi khoa
  *           'NOI_TRU'   các khoa có giường bệnh
@@ -84,7 +84,7 @@ function danh_muc_chi_tieu_mac_dinh(): array
     $them('XN', 'Tổng số các xét nghiệm', 'Lần', null,
         'DEM', 'TONG_CON', 'CAO_TOT', 'THEO_NGAY', $apXN);
     foreach ([['XN_HH', 'Huyết học'], ['XN_HS', 'Hóa sinh'],
-              ['XN_VS', 'Vi sinh vật'], ['XN_NT', 'Nước tiểu']] as [$m, $t]) {
+              ['XN_VS', 'Vi sinh vật'], ['XN_MD', 'Miễn dịch'], ['XN_NT', 'Nước tiểu']] as [$m, $t]) {
         $them($m, $t, 'Lần', 'XN', 'DEM', 'NHAP_TAY', 'CAO_TOT', 'THEO_NGAY', $apXN);
     }
     $them('XN_HIV', 'Tổng số xét nghiệm HIV', 'Lần', null,
@@ -149,6 +149,10 @@ function danh_muc_chi_tieu_mac_dinh(): array
     $them('NS_DD', 'Nội soi dạ dày', 'Ca', null,
         'DEM', 'NHAP_TAY', 'CAO_TOT', 'THEO_NGAY', ['LCK']);
     $them('DT_NGOAI_TRU', 'Tổng số lượt bệnh nhân điều trị ngoại trú', 'Lượt', null,
+        'DEM', 'NHAP_TAY', 'CAO_TOT', 'THEO_NGAY', ['YHCT', 'PK']);
+    $them('NGT_BH', 'Trong đó: Bảo hiểm y tế', 'Lượt', 'DT_NGOAI_TRU',
+        'DEM', 'NHAP_TAY', 'CAO_TOT', 'THEO_NGAY', ['YHCT', 'PK']);
+    $them('NGT_ND', 'Trong đó: Người dân (viện phí)', 'Lượt', 'DT_NGOAI_TRU',
         'DEM', 'NHAP_TAY', 'CAO_TOT', 'THEO_NGAY', ['YHCT', 'PK']);
 
     // --- Nghiên cứu khoa học ---

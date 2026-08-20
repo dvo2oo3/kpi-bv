@@ -24,7 +24,7 @@ $dsKhoa = $duocPhep === null
 if (!$dsKhoa) {
     mo_trang('Nhập số liệu');
     echo '<div class="tb tb-canh-bao">Bạn chưa được gán khoa nào. '
-       . 'Liên hệ Phòng Kế hoạch Tổng hợp để được phân công.</div>';
+       . 'Liên hệ admin để được phân công.</div>';
     dong_trang();
     exit;
 }
@@ -84,12 +84,37 @@ if (la_post()) {
     kiem_tra_csrf();
     $viec = post('viec');
 
+    /* ---------- Bác sĩ yêu cầu admin mở lại kỳ đã chốt để sửa ---------- */
+    if ($viec === 'yeu_cau_mo_lai') {
+        if (!in_array($trangThai, ['DA_DUYET', 'DA_KHOA'], true)) {
+            nhan_tin('loi', 'Kỳ này chưa chốt nên không cần yêu cầu mở lại.');
+            chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
+        }
+        $lyDo = trim((string)post('ly_do'));
+        if ($lyDo === '') {
+            nhan_tin('loi', 'Vui lòng ghi rõ lý do cần sửa để admin xem xét.');
+            chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
+        }
+        if (!qVal('SELECT 1 FROM ky WHERE nam=? AND thang=? AND id_khoa=?', [$nam, $thang, $idKhoa])) {
+            q('INSERT INTO ky (nam, thang, id_khoa, trang_thai) VALUES (?,?,?,?)',
+                [$nam, $thang, $idKhoa, $trangThai]);
+        }
+        // Ghi yêu cầu vào ghi_chu (tiền tố "YC:") — admin thấy trên trang Duyệt kỳ.
+        $nguoi = $toi['ho_ten'] ?? ($toi['ten_dang_nhap'] ?? '');
+        q('UPDATE ky SET ghi_chu=? WHERE nam=? AND thang=? AND id_khoa=?',
+            ['YC: ' . $lyDo . ' — ' . $nguoi . ', ' . date('d/m/Y H:i'),
+             $nam, $thang, $idKhoa]);
+        ghi_nhat_ky('YEU_CAU_MO_LAI', $khoa['ma'], "Tháng $thang/$nam — $lyDo");
+        nhan_tin('ok', 'Đã gửi yêu cầu mở lại cho admin. Khi admin mở lại, bạn sẽ sửa được.');
+        chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
+    }
+
     /* ---------- Sửa kỳ đã chốt bằng bút toán điều chỉnh ---------- */
     if ($viec === 'dieu_chinh') {
         if (!$duocDieuChinh) {
             ghi_nhat_ky('TU_CHOI_DIEU_CHINH', $khoa['ma'], "Tháng $thang/$nam");
             nhan_tin('loi', 'Bạn không có quyền sửa số liệu của kỳ đã chốt. '
-                . 'Đề nghị Phòng KHTH hoặc người phát triển lập bút toán điều chỉnh.');
+                . 'Đề nghị admin hoặc người phát triển lập bút toán điều chỉnh.');
             chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
         }
         $lyDo = post('ly_do');
@@ -102,7 +127,7 @@ if (la_post()) {
         $soDoi = 0;
         db()->beginTransaction();
         foreach ($dsCT as $ct) {
-            if ($ct['nguon'] !== 'NHAP_TAY') {
+            if (!nhap_tay_duoc($ct, $idKhoa)) {
                 continue;
             }
             $id = $ct['id'];
@@ -163,8 +188,8 @@ if (la_post()) {
 
         db()->beginTransaction();
         foreach ($dsCT as $ct) {
-            if ($ct['nguon'] !== 'NHAP_TAY') {
-                continue;   // dòng cha và dòng công thức không lưu
+            if (!nhap_tay_duoc($ct, $idKhoa)) {
+                continue;   // dòng cha (có con) và dòng công thức không lưu
             }
             $id = $ct['id'];
             if (!array_key_exists($id, $gt)) {
@@ -200,7 +225,7 @@ if (la_post()) {
                 WHERE nam=? AND thang=? AND id_khoa=?',
                 ['DA_NOP', $toi['id'], $nam, $thang, $idKhoa]);
             ghi_nhat_ky('NOP_KY', $khoa['ma'], "Tháng $thang/$nam");
-            nhan_tin('ok', "Đã nộp số liệu tháng $thang/$nam. Chờ Phòng KHTH duyệt.");
+            nhan_tin('ok', "Đã nộp số liệu tháng $thang/$nam. Chờ admin duyệt.");
         } else {
             ghi_nhat_ky('LUU_SO_LIEU', $khoa['ma'], "Tháng $thang/$nam");
             nhan_tin('ok', 'Đã lưu số liệu.');
@@ -216,6 +241,17 @@ foreach (qAll('SELECT * FROM so_lieu WHERE nam=? AND thang=? AND id_khoa=?',
         [$nam, $thang, $idKhoa]) as $r) {
     $hienTai[(int)$r['id_chi_tieu']] = $r;
 }
+
+// Bút toán điều chỉnh mới nhất của từng chỉ tiêu (để hiện dấu "cũ → mới" ngay trên dòng)
+$dieuChinh = [];
+foreach (qAll('SELECT * FROM dieu_chinh WHERE nam=? AND thang=? AND id_khoa=? ORDER BY thoi_diem, id',
+        [$nam, $thang, $idKhoa]) as $r) {
+    $dieuChinh[(int)$r['id_chi_tieu']] = $r;   // vòng tăng dần → giữ cái mới nhất
+}
+
+// Mốc tháng trước để so tăng/giảm (giúp admin soi số bất thường khi duyệt)
+$thangTr = $thang - 1; $namTr = $nam;
+if ($thangTr === 0) { $thangTr = 12; $namTr--; }
 
 /* Kiểm tra chéo */
 $canhBao = [];
@@ -341,11 +377,31 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
       Bạn có quyền sửa kỳ đã chốt, nhưng phải qua bút toán điều chỉnh —
       <a href="?nam=<?= $nam ?>&thang=<?= $thang ?>&khoa=<?= $idKhoa ?>&dieu_chinh=1">
         <strong>bật chế độ điều chỉnh</strong></a>.
-    <?php else: ?>
-      Muốn sửa phải đề nghị Phòng KHTH lập bút toán điều chỉnh.
     <?php endif; ?>
     <?= $goiYMo ?>
   </div>
+  <?php // Bác sĩ xin admin MỞ LẠI kỳ đã duyệt/khóa để sửa
+  if (in_array($trangThai, ['DA_DUYET', 'DA_KHOA'], true)):
+      $kyTt = ban_ghi_ky($nam, $thang, $idKhoa);
+      $daGuiYC = $kyTt && str_starts_with((string)($kyTt['ghi_chu'] ?? ''), 'YC:'); ?>
+    <?php if ($daGuiYC): ?>
+      <div class="tb tb-ok">
+        ✔ <strong>Đã gửi yêu cầu mở lại</strong> — đang chờ admin duyệt.
+        <small class="phu">(<?= e(trim(substr($kyTt['ghi_chu'], 3))) ?>)</small>
+      </div>
+    <?php else: ?>
+      <div class="tb">
+        <form method="post" class="hang-yeu-cau">
+          <?= csrf_field() ?>
+          <input type="hidden" name="viec" value="yeu_cau_mo_lai">
+          <strong>Cần sửa lại số liệu?</strong>
+          <input type="text" name="ly_do" required
+                 placeholder="Ghi lý do (VD: nhập nhầm số lượt khám) để xin admin mở lại">
+          <button class="nut nut-nho nut-canh" type="submit">Yêu cầu mở lại</button>
+        </form>
+      </div>
+    <?php endif; ?>
+  <?php endif; ?>
 <?php endif; ?>
 
 <?php foreach ($canhBao as $cb): ?>
@@ -361,10 +417,12 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
   <table class="bang bang-nhap">
     <thead>
       <tr>
-        <th style="width:36%">Nội dung</th>
+        <th class="giua" style="width:42px">STT</th>
+        <th style="width:34%">Nội dung</th>
         <th>Đơn vị</th>
         <th>Chỉ tiêu <?= $xemCT === 'nam' ? 'cả năm' : 'tháng ' . $thang ?></th>
         <th>Thực hiện</th>
+        <th class="giua">So tháng trước</th>
         <th>Đợt/chiến dịch</th>
         <th>Ghi chú</th>
       </tr>
@@ -373,7 +431,7 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
     <?php foreach ($dsCT as $ct):
         $id = $ct['id'];
         $r  = $hienTai[$id] ?? null;
-        $tuTinh = $ct['nguon'] !== 'NHAP_TAY';
+        $tuTinh = !nhap_tay_duoc($ct, $idKhoa);
         $ctThang = chi_tieu_cua_ky($nam, [$thang], $idKhoa, $id);
         // Giá trị cột chỉ tiêu: theo năm dùng chỉ tiêu giao (chỉ tiêu tỷ lệ/hằng
         // số giữ nguyên, chỉ tiêu đếm là tổng cả năm); theo tháng dùng phần chia.
@@ -382,13 +440,21 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
             ? ($giaNam !== null ? (float)$giaNam : chi_tieu_cua_ky($nam, range(1, 12), $idKhoa, $id))
             : $ctThang;
         $tinh = $tuTinh ? gia_tri_thang($nam, $thang, $idKhoa, $id) : null;
-        $leSo = in_array($ct['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0; ?>
-      <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?> <?= $tuTinh ? 'dong-tinh' : '' ?>">
+        $leSo = in_array($ct['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0;
+        // So với tháng trước để soi số bất thường khi duyệt
+        $curV   = $tuTinh ? $tinh : ($r['gia_tri'] ?? null);
+        $truocV = gia_tri_thang($namTr, $thangTr, $idKhoa, $id);
+        $daNhapV = $curV !== null;
+        $doiTruoc = $daNhapV && $truocV !== null && abs((float)$curV - (float)$truocV) > 1e-9; ?>
+      <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?> <?= $tuTinh ? 'dong-tinh' : '' ?>"
+          data-id="<?= (int)$id ?>" data-cha="<?= $ct['id_cha'] !== null ? (int)$ct['id_cha'] : '' ?>"
+          data-nguon="<?= e($ct['nguon']) ?>" data-le="<?= (int)$leSo ?>">
+        <td class="giua nho"><?= $ct['cap'] ? '' : (int)($ct['vi_tri'] ?? 0) ?></td>
         <td>
           <?= $ct['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($ct['ten']) ?>
-          <?php if ($ct['nguon'] === 'TONG_CON'): ?>
+          <?php if ($tuTinh && $ct['nguon'] === 'TONG_CON'): ?>
             <span class="the the-nho">tổng của con</span>
-          <?php elseif ($ct['nguon'] === 'CONG_THUC'): ?>
+          <?php elseif ($tuTinh && $ct['nguon'] === 'CONG_THUC'): ?>
             <span class="the the-nho">tự tính</span>
           <?php endif; ?>
         </td>
@@ -396,16 +462,49 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
         <td class="phai nho"><?= so($ctHien, $leSo) ?></td>
         <td>
           <?php if ($tuTinh): ?>
-            <span class="gia-tri-tinh"><?= $leSo ? so($tinh, 1) : so($tinh) ?></span>
+            <span class="gia-tri-tinh" data-tinh="<?= (int)$id ?>"><?= $leSo ? so($tinh, 1) : so($tinh) ?></span>
           <?php elseif (!$choNhap):
             // Kỳ đã chốt: hiện thẳng con số, không dựng ô nhập rỗng màu xám
             $daNhap = $r && $r['gia_tri'] !== null; ?>
-            <span class="gia-tri-khoa <?= $daNhap ? '' : 'trong' ?>">
+            <span class="gia-tri-khoa <?= $daNhap ? 'gia-tri-moi' : 'trong' ?><?= $doiTruoc ? ' co-doi' : '' ?>">
               <?= $daNhap ? so((float)$r['gia_tri'], $leSo) : 'chưa nhập' ?>
             </span>
           <?php else: ?>
-            <input type="text" inputmode="decimal" name="gt[<?= $id ?>]" class="o-so"
+            <input type="text" inputmode="decimal" name="gt[<?= $id ?>]"
+                   class="o-so<?= $doiTruoc ? ' co-doi' : '' ?>"
                    value="<?= e(so_o_nhap($r['gia_tri'] ?? null)) ?>">
+          <?php endif; ?>
+          <?php if (isset($dieuChinh[$id])):
+              $dc = $dieuChinh[$id];
+              $dcCu  = $dc['gia_tri_cu']  === null ? 'chưa nhập' : so((float)$dc['gia_tri_cu'], $leSo);
+              $dcMoi = $dc['gia_tri_moi'] === null ? 'xóa'       : so((float)$dc['gia_tri_moi'], $leSo); ?>
+            <div class="dau-dieu-chinh" title="Đã điều chỉnh — lý do: <?= e($dc['ly_do']) ?>">
+              ✎ đã sửa: <span class="dc-cu"><?= $dcCu ?></span> → <span class="dc-moi"><?= $dcMoi ?></span>
+            </div>
+          <?php endif; ?>
+        </td>
+        <td class="giua nho o-thang-truoc">
+          <?php if (!$daNhapV): ?>
+            <span class="phu">—</span>
+          <?php elseif ($truocV === null): ?>
+            <span class="delta delta-moi" title="Tháng <?= $thangTr ?> chưa có số">mới</span>
+          <?php elseif (!$doiTruoc): ?>
+            <span class="delta delta-bang" title="Bằng tháng <?= $thangTr ?>: <?= so($truocV, $leSo) ?>">＝</span>
+          <?php elseif (abs((float)$truocV) < 1e-9): // tháng trước = 0 → không chia được, chỉ báo tăng ?>
+            <span class="delta delta-len" title="Tháng <?= $thangTr ?>: 0 → nay: <?= so($curV, $leSo) ?>">▲ mới</span>
+          <?php else:
+              $tang = (float)$curV >= (float)$truocV;
+              $ty   = abs(((float)$curV - (float)$truocV) / (float)$truocV) * 100;
+              // Thay đổi vừa phải → hiện %; quá lớn (>10 lần) → hiện "gấp N lần" cho dễ hiểu
+              if ($ty < 1000) {
+                  $txtDelta = ($ty < 10 ? number_format($ty, 1, '.', '') : (string)(int)round($ty)) . '%';
+              } else {
+                  $txtDelta = 'gấp ' . (string)(int)round((float)$curV / abs((float)$truocV)) . ' lần';
+              } ?>
+            <span class="delta delta-<?= $tang ? 'len' : 'giam' ?>"
+                  title="Tháng <?= $thangTr ?>: <?= so($truocV, $leSo) ?> → nay: <?= so($curV, $leSo) ?>">
+              <?= $tang ? '▲' : '▼' ?> <?= $txtDelta ?>
+            </span>
           <?php endif; ?>
         </td>
         <td class="giua">
@@ -444,8 +543,8 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
     <p class="hang-nut">
       <button class="nut" type="submit" name="viec" value="luu">Lưu tạm</button>
       <button class="nut nut-nhan" type="submit" name="viec" value="nop"
-              onclick="return confirm('Nộp số liệu tháng <?= $thang ?>/<?= $nam ?>? Sau khi nộp sẽ không sửa được nữa.')">
-        Nộp cho Phòng KHTH
+              data-xac-nhan="Nộp số liệu tháng <?= $thang ?>/<?= $nam ?>? Sau khi nộp sẽ không sửa được nữa.">
+        Nộp cho admin
       </button>
     </p>
   <?php elseif ($cheDoDieuChinh): ?>
@@ -456,7 +555,7 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
         <small>Lý do được lưu vĩnh viễn cùng giá trị cũ và tên người sửa.</small>
       </label>
       <button class="nut nut-nguy" type="submit" name="viec" value="dieu_chinh"
-              onclick="return confirm('Ghi bút toán điều chỉnh cho tháng <?= $thang ?>/<?= $nam ?>?')">
+              data-xac-nhan="Ghi bút toán điều chỉnh cho tháng <?= $thang ?>/<?= $nam ?>?">
         Ghi bút toán điều chỉnh
       </button>
     </div>
@@ -508,4 +607,57 @@ if ($dsDC): ?>
 </div>
 <?php endif; ?>
 <?php endif; ?>
+<script>
+/* Preview trực tiếp: gõ số con → dòng "tổng của con" (TONG_CON) tự cộng và hiện ngay,
+   chưa cần Lưu. Cộng từ dưới lên nên tổng lồng nhau (con của con) cũng đúng. */
+(function () {
+  var tbody = document.querySelector('.bang-nhap tbody');
+  if (!tbody) { return; }
+  var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-id]'));
+
+  function dinhDang(n, le) {
+    return n.toLocaleString('vi-VN', { minimumFractionDigits: le ? 1 : 0, maximumFractionDigits: le ? 1 : 0 });
+  }
+  function giaTri(tr) {
+    var inp = tr.querySelector('input[name^="gt"]');
+    if (inp) {                                   // ô nhập: số thô, chấm = thập phân
+      var v = inp.value.trim().replace(',', '.');
+      if (v === '') { return null; }
+      var f = parseFloat(v); return isNaN(f) ? null : f;
+    }
+    var sp = tr.querySelector('.gia-tri-tinh, .gia-tri-khoa');
+    if (sp) {                                    // ô tự tính / kỳ đã khóa: 28.500 (chấm = nghìn, phẩy = thập phân)
+      var t = sp.textContent.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+      if (t === '') { return null; }
+      var g = parseFloat(t); return isNaN(g) ? null : g;
+    }
+    return null;
+  }
+  function tinhLai() {
+    for (var i = rows.length - 1; i >= 0; i--) {   // dưới lên: con tính trước
+      var tr = rows[i];
+      if (tr.dataset.nguon !== 'TONG_CON') { continue; }
+      var span = tr.querySelector('.gia-tri-tinh');
+      if (!span) { continue; }                    // TONG_CON không có con trong khoa → là ô nhập
+      var pid = tr.dataset.id, tong = null, co = false, coNhap = false;
+      for (var j = 0; j < rows.length; j++) {
+        if (rows[j].dataset.cha === pid) {
+          var v = giaTri(rows[j]);
+          if (v !== null) { tong = (tong || 0) + v; co = true; }
+          if (rows[j].querySelector('input[name^="gt"]')) { coNhap = true; }
+        }
+      }
+      span.textContent = co ? dinhDang(tong, tr.dataset.le === '1') : '—';
+      span.classList.toggle('gia-tri-preview', co && coNhap);   // chỉ tô xanh khi đang gõ (kỳ mở)
+    }
+  }
+  tbody.addEventListener('input', function (e) {
+    if (e.target.matches && e.target.matches('input[name^="gt"]')) { tinhLai(); }
+  });
+  tinhLai();
+})();
+</script>
+<style>
+  .gia-tri-tinh.gia-tri-preview { color: var(--xanh-500, #2563eb); font-weight: 600; }
+</style>
 <?php dong_trang();
