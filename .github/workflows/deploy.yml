@@ -1,12 +1,14 @@
-# Tự động đẩy code lên InfinityFree qua FTP mỗi khi push lên nhánh main.
+# Tự động đẩy code lên VPS Hetzner qua SSH/rsync mỗi khi push lên nhánh main.
 #
 # CẦN LÀM TRƯỚC (một lần):
-#   1) InfinityFree panel → Account → "FTP Accounts": lấy Hostname / Username / Password.
-#   2) GitHub repo → Settings → Secrets and variables → Actions → New repository secret,
-#      thêm 3 secret:  FTP_HOST   FTP_USERNAME   FTP_PASSWORD
-#   3) Tải app/config.php (đã điền creds MySQL thật) lên server MỘT LẦN bằng File Manager.
-#      Workflow này CỐ Ý bỏ qua config.php để không ghi đè creds thật của server.
-name: Deploy to InfinityFree
+#   1) Trên VPS: tạo SSH deploy key, thêm public key vào /root/.ssh/authorized_keys
+#   2) GitHub repo → Settings → Secrets and variables → Actions → thêm 2 secret:
+#        VPS_HOST     = 49.13.210.250
+#        VPS_SSH_KEY  = toàn bộ nội dung PRIVATE key vừa tạo
+#   3) config.php (chứa creds MySQL thật) đã nằm sẵn trên server — workflow CỐ Ý
+#      bỏ qua nó để không ghi đè.
+
+name: Deploy QLBV to Hetzner
 
 on:
   push:
@@ -14,24 +16,28 @@ on:
   workflow_dispatch:        # cho phép bấm chạy tay trong tab Actions
 
 jobs:
-  ftp-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy htdocs qua FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_HOST }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ftp
-          local-dir: ./htdocs/
-          server-dir: /htdocs/
-          # Không đụng tới config.php (giữ creds thật của server) và các thứ không cần
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/app/config.php
-            **/*.md
+      - name: Chuẩn bị SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Rsync htdocs lên VPS
+        run: |
+          rsync -avz --delete \
+            --exclude 'app/config.php' \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+            htdocs/ root@"${{ secrets.VPS_HOST }}":/var/www/qlbv/htdocs/
+
+      - name: Phân quyền lại cho web
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            root@"${{ secrets.VPS_HOST }}" \
+            "chown -R www-data:www-data /var/www/qlbv/htdocs && chmod 640 /var/www/qlbv/htdocs/app/config.php"
