@@ -176,6 +176,23 @@ if (la_post()) {
         chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
     }
 
+    /* ---------- Dev: xóa toàn bộ bút toán điều chỉnh của kỳ (dọn log) ----------
+     * Chỉ xóa bản ghi lưu vết trong bảng dieu_chinh; KHÔNG đụng số liệu hiện tại. */
+    if ($viec === 'xoa_dieu_chinh') {
+        if (!co_quyen('dieuchinh.xoa')) {
+            ghi_nhat_ky('TU_CHOI_XOA_DIEU_CHINH', $khoa['ma'], "Tháng $thang/$nam");
+            nhan_tin('loi', 'Bạn không có quyền xóa bút toán điều chỉnh.');
+            chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
+        }
+        $soXoa = q('DELETE FROM dieu_chinh WHERE nam=? AND thang=? AND id_khoa=?',
+                   [$nam, $thang, $idKhoa])->rowCount();
+        ghi_nhat_ky('XOA_DIEU_CHINH', $khoa['ma'], "Tháng $thang/$nam — xóa $soXoa bút toán");
+        nhan_tin('ok', $soXoa > 0
+            ? "Đã xóa $soXoa bút toán điều chỉnh của kỳ này. Số liệu hiện tại giữ nguyên."
+            : 'Kỳ này không có bút toán nào để xóa.');
+        chuyen_huong("/nhap-so-lieu.php?nam=$nam&thang=$thang&khoa=$idKhoa");
+    }
+
     if ($viec === 'luu' || $viec === 'nop') {
         if (!$choSua) {
             nhan_tin('loi', 'Kỳ này không còn cho sửa (' . ten_trang_thai($trangThai) . ').');
@@ -552,12 +569,12 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
       <label>Lý do điều chỉnh <span class="bat-buoc">bắt buộc</span>
         <input type="text" name="ly_do" required
                placeholder="VD: Khoa báo sót 5 ca phẫu thuật, đối chiếu lại sổ mổ ngày 28/6">
-        <small>Lý do được lưu vĩnh viễn cùng giá trị cũ và tên người sửa.</small>
       </label>
       <button class="nut nut-nguy" type="submit" name="viec" value="dieu_chinh"
               data-xac-nhan="Ghi bút toán điều chỉnh cho tháng <?= $thang ?>/<?= $nam ?>?">
         Ghi bút toán điều chỉnh
       </button>
+      <small class="dc-ghichu">Lý do được lưu vĩnh viễn cùng giá trị cũ và tên người sửa.</small>
     </div>
   <?php endif; ?>
 </form>
@@ -605,6 +622,15 @@ if ($dsDC): ?>
   </tbody>
 </table>
 </div>
+<?php if (co_quyen('dieuchinh.xoa')): ?>
+  <form method="post" style="margin-top:12px"
+        data-xac-nhan="Xóa TOÀN BỘ <?= count($dsDC) ?> bút toán điều chỉnh của tháng <?= $thang ?>/<?= $nam ?>? Số liệu hiện tại GIỮ NGUYÊN, chỉ mất phần lịch sử lưu vết. Không hoàn tác được."
+        data-xac-nhan-loai="nguy">
+    <?= csrf_field() ?>
+    <input type="hidden" name="viec" value="xoa_dieu_chinh">
+    <button class="nut nut-nho nut-nguy" type="submit">Xóa toàn bộ bút toán của kỳ này</button>
+  </form>
+<?php endif; ?>
 <?php endif; ?>
 <?php endif; ?>
 <script>

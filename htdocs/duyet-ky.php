@@ -78,6 +78,16 @@ if (la_post()) {
     if (post('nam'))   { $nam   = (int)post('nam'); }
     if (post('thang')) { $thang = max(1, min(12, (int)post('thang'))); }
     $viec   = post('viec');
+
+    // Duyệt TẤT CẢ kỳ đang chờ (mọi tháng, mọi khoa) — không cần chọn khoa.
+    if ($viec === 'duyet_tat_ca') {
+        $so = q("UPDATE ky SET trang_thai='DA_DUYET', nguoi_duyet=?, thoi_diem_duyet=CURRENT_TIMESTAMP
+                 WHERE trang_thai='DA_NOP'", [$toi['id']])->rowCount();
+        ghi_nhat_ky('DUYET_KY_HANG_LOAT', null, "Duyệt $so kỳ đang chờ");
+        nhan_tin('ok', $so > 0 ? "Đã duyệt $so kỳ đang chờ." : 'Không có kỳ nào đang chờ duyệt.');
+        chuyen_huong("/duyet-ky.php?nam=$nam&thang=$thang");
+    }
+
     $idKhoa = (int)post('id_khoa');
     $khoa   = q1('SELECT * FROM khoa WHERE id = ?', [$idKhoa]);
 
@@ -215,6 +225,15 @@ if ($choDuyet): ?>
     <button type="button" class="dong-tro-giup" aria-label="Đóng">&times;</button>
   </div>
   <div class="modal-than">
+    <div style="margin:0 0 12px">
+      <form method="post" style="display:inline"
+            data-xac-nhan="Duyệt TẤT CẢ kỳ đang chờ? Những kỳ còn đang mở sẽ bị khóa sớm."
+            data-xac-nhan-loai="nguy">
+        <?= csrf_field() ?>
+        <input type="hidden" name="viec" value="duyet_tat_ca">
+        <button class="nut" type="submit">✓ Duyệt tất cả (<?= count($choDuyet) ?>)</button>
+      </form>
+    </div>
     <table class="bang-cho-duyet">
       <?php foreach ($choDuyet as $c): ?>
       <tr>

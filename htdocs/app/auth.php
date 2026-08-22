@@ -64,7 +64,7 @@ const QUYEN_THEO_VAI_TRO = [
  */
 const QUYEN_RIENG_DEV = [
     'ky.mo_lai',            // mở lại kỳ đã khóa
-    'solieu.sua_ky_khoa',   // sửa số liệu kỳ đã khóa, bắt buộc qua bút toán điều chỉnh
+    'dieuchinh.xoa',        // xóa toàn bộ bút toán điều chỉnh của một kỳ (dọn log)
     'chitieu.cong_thuc',    // đặt chỉ tiêu dạng công thức
     'chitieu.xoa',          // xóa vĩnh viễn chỉ tiêu
     'chitieu.nap_mac_dinh',
@@ -173,6 +173,7 @@ const QUYEN_CO_THE_UY = [
     'ky.dat_lich'       => 'Đặt lịch mở kỳ nhập liệu',
     'solieu.xem_tat_ca' => 'Xem số liệu mọi khoa',
     'solieu.nhap_excel' => 'Nhập số liệu từ file Excel',
+    'solieu.sua_ky_khoa'=> 'Sửa số liệu kỳ đã chốt (qua bút toán điều chỉnh)',
     'chitieu.giao'      => 'Giao chỉ tiêu',
     'chitieu.them'      => 'Thêm chỉ tiêu',
     'chitieu.sua'       => 'Sửa chỉ tiêu',
