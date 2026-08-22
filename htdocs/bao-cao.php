@@ -164,6 +164,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       <th style="width:28%">Nội dung</th>
       <th>Đơn vị</th>
       <th class="phai">Chỉ tiêu kỳ</th>
+      <th class="phai">Chỉ tiêu năm</th>
       <th class="phai">Thực hiện</th>
       <th class="phai">So KH kỳ</th>
       <th class="phai">So KH năm</th>
@@ -180,6 +181,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?></td>
       <td class="nho"><?= e($d['ct']['don_vi']) ?></td>
       <td class="phai"><?= so($d['chi_tieu'], $le) ?></td>
+      <td class="phai nho"><?= so($d['chi_tieu_nam'], $le) ?></td>
       <td class="phai">
         <strong><?= so($d['thuc_hien'], $le) ?></strong>
         <?php // Thay đổi so với cùng kỳ năm trước — tô màu theo hướng tốt/xấu

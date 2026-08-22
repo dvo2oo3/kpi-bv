@@ -5,3 +5,6 @@
 # CSDL thử nghiệm cục bộ
 *.sqlite
 *.sqlite3
+
+# Bản dump dữ liệu thật để đưa lên VPS (có hash mật khẩu) — không commit
+/_local/qlbv_data_mysql.sql
