@@ -425,14 +425,20 @@ mo_trang('Quản lý người dùng');
                 <fieldset class="nhom-khoa">
                   <legend>Quyền ủy thêm cho người này</legend>
                   <div class="luoi-o-chon">
-                    <?php foreach (QUYEN_CO_THE_UY as $ma => $tenQ): ?>
-                      <label class="o-chon">
+                    <?php $quyenVaiTro = QUYEN_THEO_VAI_TRO[$u['vai_tro']] ?? [];
+                    foreach (QUYEN_CO_THE_UY as $ma => $tenQ):
+                      $doVaiTro = in_array($ma, $quyenVaiTro, true);   // đã có sẵn theo vai trò
+                      $daUy     = in_array($ma, $qUy, true); ?>
+                      <label class="o-chon<?= $doVaiTro ? ' o-chon-vaitro' : '' ?>"
+                             <?= $doVaiTro ? 'title="Đã có sẵn theo vai trò '.e(ten_vai_tro($u['vai_tro'])).' — không cần ủy"' : '' ?>>
                         <input type="checkbox" name="quyen[]" value="<?= e($ma) ?>"
-                          <?= in_array($ma, $qUy, true) ? 'checked' : '' ?>>
-                        <span><?= e($tenQ) ?></span>
+                          <?= ($doVaiTro || $daUy) ? 'checked' : '' ?><?= $doVaiTro ? ' disabled' : '' ?>>
+                        <span><?= e($tenQ) ?><?= $doVaiTro ? ' <em class="o-chon-tag">(theo vai trò)</em>' : '' ?></span>
                       </label>
                     <?php endforeach; ?>
                   </div>
+                  <small class="phu">Ô <strong>mờ</strong> là quyền người này đã có sẵn theo vai trò, không cần ủy.
+                    Tick thêm để ủy quyền, bỏ tick để thu hồi phần đã ủy.</small>
                 </fieldset>
                 <div class="form-chan">
                   <button class="nut nut-chinh" type="submit">Lưu quyền</button>

@@ -622,6 +622,11 @@ select {
 }
 .o-chon span { min-width: 0; }
 .o-chon strong { color: var(--chu); font-weight: 650; }
+/* Quyền đã có sẵn theo vai trò: mờ, không sửa được */
+.o-chon-vaitro { opacity: .6; cursor: default; }
+.o-chon-vaitro:hover { background: transparent; }
+.o-chon-vaitro input[type=checkbox] { cursor: default; }
+.o-chon-tag { font-style: normal; font-size: 11px; color: var(--chu-2); }
 
 /* Khối chân: nút chính bên trái, dòng nhắc bên phải */
 .form-chan {
