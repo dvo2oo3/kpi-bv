@@ -465,7 +465,7 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
         $doiTruoc = $daNhapV && $truocV !== null && abs((float)$curV - (float)$truocV) > 1e-9; ?>
       <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?> <?= $tuTinh ? 'dong-tinh' : '' ?>"
           data-id="<?= (int)$id ?>" data-cha="<?= $ct['id_cha'] !== null ? (int)$ct['id_cha'] : '' ?>"
-          data-nguon="<?= e($ct['nguon']) ?>" data-le="<?= (int)$leSo ?>">
+          data-nguon="<?= e($ct['nguon']) ?>" data-loai="<?= e($ct['loai_gia_tri']) ?>" data-le="<?= (int)$leSo ?>">
         <td class="giua nho"><?= $ct['cap'] ? '' : (int)($ct['vi_tri'] ?? 0) ?></td>
         <td>
           <?= $ct['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($ct['ten']) ?>
@@ -668,6 +668,7 @@ if ($dsDC): ?>
       var pid = tr.dataset.id, tong = null, co = false, coNhap = false;
       for (var j = 0; j < rows.length; j++) {
         if (rows[j].dataset.cha === pid) {
+          if (rows[j].dataset.loai === 'GHI_CHU') { continue; }   // con Ghi chú → không cộng
           var v = giaTri(rows[j]);
           if (v !== null) { tong = (tong || 0) + v; co = true; }
           if (rows[j].querySelector('input[name^="gt"]')) { coNhap = true; }

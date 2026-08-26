@@ -400,6 +400,9 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
         if ($con) {                       // có con trong khoa → cộng các con
             $tong = null;
             foreach ($con as $c) {
+                if (($c['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+                    continue;             // con là Ghi chú → chỉ hiển thị, không cộng vào tổng
+                }
                 $v = gia_tri_thang($nam, $thang, $idKhoa, $c['id']);
                 if ($v !== null) {
                     $tong = ($tong ?? 0) + $v;
