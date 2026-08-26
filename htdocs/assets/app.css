@@ -850,6 +850,7 @@ select {
   display: flex;
   flex-direction: column;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  container-type: inline-size;   /* để số lớn co theo bề rộng thẻ (cqw) */
 }
 .the-kpi:hover {
   transform: translateY(-2px);
@@ -881,13 +882,16 @@ select {
 }
 
 .kpi-so {
-  font-size: 28px;
+  font-size: 28px;                       /* fallback trình duyệt không hỗ trợ cqw */
+  font-size: clamp(20px, 10cqw, 28px);   /* số dài → tự co để vừa khung, không tràn */
   font-weight: 800;
   color: var(--xanh-900);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   margin: 4px 0 6px;
   letter-spacing: -0.02em;
+  white-space: nowrap;                   /* số không xuống dòng giữa chừng */
+  overflow-wrap: normal;
 }
 
 .kpi-chu-thich {
@@ -1421,11 +1425,17 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
   border-radius: var(--bo-goc);
   padding: 14px 16px;
   box-shadow: var(--bong-1);
+  container-type: inline-size;   /* để số lớn co theo bề rộng ô (cqw) */
 }
 
 .cm-ten { font-size: 13.5px; font-weight: 700; color: var(--chu); margin-bottom: 4px; }
-.cm-so  { font-size: 22px; font-weight: 800; color: var(--xanh-900); font-variant-numeric: tabular-nums; line-height: 1.15; }
-.cm-dv  { font-size: 12px; font-weight: 500; color: var(--chu-3); margin-left: 4px; }
+.cm-so  {
+  font-size: 22px;                       /* fallback */
+  font-size: clamp(16px, 13cqw, 22px);   /* ô hẹp (180px) → số dài tự co */
+  font-weight: 800; color: var(--xanh-900); font-variant-numeric: tabular-nums;
+  line-height: 1.15; white-space: nowrap;
+}
+.cm-dv  { font-size: 12px; font-weight: 500; color: var(--chu-3); margin-left: 4px; white-space: nowrap; }
 .cm-day { margin-top: 8px; }
 .cm-pt  { font-size: 12px; font-weight: 700; margin-top: 3px; }
 
@@ -2410,11 +2420,16 @@ tr:hover .them-con-nut { opacity: 1; }
   text-align: center; padding: 6px 2px;
   border-radius: var(--bo-goc-nho);
   background: #f8fafc; border: 1px solid var(--vien-nhat);
+  container-type: inline-size;   /* để số trong ô tháng co theo bề rộng ô */
 }
 .ot-t { display: block; font-size: 10px; font-weight: 600; color: var(--chu-3); }
 .ot-v {
-  display: block; font-size: 13px; font-weight: 700; color: var(--chu);
+  display: block;
+  font-size: 13px;                       /* fallback */
+  font-size: clamp(10px, 30cqw, 13px);   /* ô tháng rất hẹp → số dài tự co, không tràn */
+  font-weight: 700; color: var(--chu);
   font-variant-numeric: tabular-nums; margin-top: 1px;
+  white-space: nowrap;
 }
 .ot-trong { opacity: .55; }
 .ot-trong .ot-v { font-weight: 400; color: var(--chu-3); }
