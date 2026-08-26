@@ -15,6 +15,7 @@ const NHAN = [
     'GHI_CHU'      => 'Ghi chú (chỉ hiển thị, không cộng dồn)',
     'NHAP_TAY'     => 'Khoa nhập tay',
     'TONG_CON'     => 'Bằng tổng các nội dung nhỏ',
+    'TONG_CON_TAY' => 'Tổng của con — sửa tay được',
     'CONG_THUC'    => 'Tính theo công thức',
     'CAO_TOT'      => 'Càng cao càng tốt',
     'THAP_TOT'     => 'Càng thấp càng tốt',
@@ -192,7 +193,7 @@ function doc_bieu_mau(bool $laDev): array
         $nguon = 'NHAP_TAY';
     }
     foreach ([[$loai,   ['DEM', 'TRUNG_BINH', 'TY_LE', 'HANG_SO', 'GHI_CHU']],
-              [$nguon,  ['NHAP_TAY', 'TONG_CON', 'CONG_THUC']],
+              [$nguon,  ['NHAP_TAY', 'TONG_CON', 'TONG_CON_TAY', 'CONG_THUC']],
               [$huong,  ['CAO_TOT', 'THAP_TOT', 'DICH_CO_DINH']],
               [$phanBo, ['THEO_NGAY', 'KHONG_CHIA']]] as [$v, $hopLe]) {
         if (!in_array($v, $hopLe, true)) {

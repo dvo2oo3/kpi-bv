@@ -392,7 +392,7 @@ mo_trang('Thư viện chỉ tiêu');
                   </label>
                   <label>Nguồn số liệu
                     <select name="nguon">
-                      <?php foreach (['NHAP_TAY','TONG_CON'] as $v): ?>
+                      <?php foreach (['NHAP_TAY','TONG_CON','TONG_CON_TAY'] as $v): ?>
                         <option value="<?= $v ?>" <?= $ct['nguon'] === $v ? 'selected' : '' ?>>
                           <?= e(NHAN[$v]) ?></option>
                       <?php endforeach; ?>

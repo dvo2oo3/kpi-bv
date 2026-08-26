@@ -458,8 +458,14 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
             : $ctThang;
         $tinh = $tuTinh ? gia_tri_thang($nam, $thang, $idKhoa, $id) : null;
         $leSo = in_array($ct['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0;
+        // Tổng của con — sửa tay được: tính sẵn tổng tự cộng để gợi ý; giá trị
+        // hiệu lực = số tay (nếu đã đè) hoặc tổng tự cộng.
+        $laTongTay = $ct['nguon'] === 'TONG_CON_TAY';
+        $daDeTay   = $laTongTay && ($r['gia_tri'] ?? null) !== null;
+        $tuCong    = $laTongTay ? tong_con_thang($nam, $thang, $idKhoa, $id) : null;
+        $hieuLuc   = $laTongTay ? ($daDeTay ? (float)$r['gia_tri'] : $tuCong) : null;
         // So với tháng trước để soi số bất thường khi duyệt
-        $curV   = $tuTinh ? $tinh : ($r['gia_tri'] ?? null);
+        $curV   = $tuTinh ? $tinh : ($laTongTay ? $hieuLuc : ($r['gia_tri'] ?? null));
         $truocV = gia_tri_thang($namTr, $thangTr, $idKhoa, $id);
         $daNhapV = $curV !== null;
         $doiTruoc = $daNhapV && $truocV !== null && abs((float)$curV - (float)$truocV) > 1e-9; ?>
@@ -471,6 +477,8 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
           <?= $ct['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($ct['ten']) ?>
           <?php if ($tuTinh && $ct['nguon'] === 'TONG_CON'): ?>
             <span class="the the-nho">tổng của con</span>
+          <?php elseif ($laTongTay): ?>
+            <span class="the the-nho" title="Mặc định tự cộng các con; có thể nhập tay đè lên">tự cộng · sửa tay</span>
           <?php elseif ($tuTinh && $ct['nguon'] === 'CONG_THUC'): ?>
             <span class="the the-nho">tự tính</span>
           <?php endif; ?>
@@ -478,8 +486,22 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
         <td class="nho"><?= e($ct['don_vi']) ?></td>
         <td class="phai nho"><?= so($ctHien, $leSo) ?></td>
         <td>
+          <?php $tuCongTxt = $tuCong !== null ? so($tuCong, $leSo) : '—'; ?>
           <?php if ($tuTinh): ?>
             <span class="gia-tri-tinh" data-tinh="<?= (int)$id ?>"><?= $leSo ? so($tinh, 1) : so($tinh) ?></span>
+          <?php elseif ($laTongTay): ?>
+            <?php if ($choNhap): ?>
+              <input type="text" inputmode="decimal" name="gt[<?= $id ?>]"
+                     class="o-so<?= $doiTruoc ? ' co-doi' : '' ?>"
+                     value="<?= e(so_o_nhap($r['gia_tri'] ?? null)) ?>"
+                     placeholder="tự cộng <?= e($tuCongTxt) ?>">
+            <?php else: ?>
+              <span class="gia-tri-khoa <?= $hieuLuc !== null ? 'gia-tri-moi' : 'trong' ?><?= $doiTruoc ? ' co-doi' : '' ?>">
+                <?= $hieuLuc !== null ? so($hieuLuc, $leSo) : 'chưa có' ?>
+              </span>
+            <?php endif; ?>
+            <div class="goi-tu-cong<?= $daDeTay ? ' da-de' : '' ?>">tự cộng con:
+              <span class="tc-so" data-auto="<?= (int)$id ?>"><?= e($tuCongTxt) ?></span><?= $daDeTay ? ' · <em>đã sửa tay</em>' : '' ?></div>
           <?php elseif (!$choNhap):
             // Kỳ đã chốt: hiện thẳng con số, không dựng ô nhập rỗng màu xám
             $daNhap = $r && $r['gia_tri'] !== null; ?>
@@ -644,27 +666,34 @@ if ($dsDC): ?>
   function dinhDang(n, le) {
     return n.toLocaleString('vi-VN', { minimumFractionDigits: le ? 1 : 0, maximumFractionDigits: le ? 1 : 0 });
   }
+  function soTuChu(s) {                           // "28.500" (chấm=nghìn) hoặc "5,5" (phẩy=thập phân)
+    var t = s.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+    if (t === '') { return null; }
+    var g = parseFloat(t); return isNaN(g) ? null : g;
+  }
   function giaTri(tr) {
     var inp = tr.querySelector('input[name^="gt"]');
     if (inp) {                                   // ô nhập: số thô, chấm = thập phân
       var v = inp.value.trim().replace(',', '.');
-      if (v === '') { return null; }
-      var f = parseFloat(v); return isNaN(f) ? null : f;
+      if (v !== '') { var f = parseFloat(v); return isNaN(f) ? null : f; }
+      // ô rỗng: nếu là "tổng con sửa tay" thì giá trị hiệu lực = tổng tự cộng con
+      var tc = tr.querySelector('.tc-so');
+      if (tc) { return soTuChu(tc.textContent); }
+      return null;
     }
     var sp = tr.querySelector('.gia-tri-tinh, .gia-tri-khoa');
-    if (sp) {                                    // ô tự tính / kỳ đã khóa: 28.500 (chấm = nghìn, phẩy = thập phân)
-      var t = sp.textContent.trim().replace(/\./g, '').replace(',', '.').replace(/[^\d.-]/g, '');
-      if (t === '') { return null; }
-      var g = parseFloat(t); return isNaN(g) ? null : g;
-    }
+    if (sp) { return soTuChu(sp.textContent); }   // ô tự tính / kỳ đã khóa
     return null;
   }
   function tinhLai() {
     for (var i = rows.length - 1; i >= 0; i--) {   // dưới lên: con tính trước
       var tr = rows[i];
-      if (tr.dataset.nguon !== 'TONG_CON') { continue; }
-      var span = tr.querySelector('.gia-tri-tinh');
-      if (!span) { continue; }                    // TONG_CON không có con trong khoa → là ô nhập
+      var laTongCon = tr.dataset.nguon === 'TONG_CON';
+      var laTongTay = tr.dataset.nguon === 'TONG_CON_TAY';
+      if (!laTongCon && !laTongTay) { continue; }
+      // TONG_CON viết vào ô kết quả; TONG_CON_TAY viết vào gợi ý "tự cộng con"
+      var oDich = laTongCon ? tr.querySelector('.gia-tri-tinh') : tr.querySelector('.tc-so');
+      if (!oDich) { continue; }                   // TONG_CON không con → là ô nhập
       var pid = tr.dataset.id, tong = null, co = false, coNhap = false;
       for (var j = 0; j < rows.length; j++) {
         if (rows[j].dataset.cha === pid) {
@@ -674,8 +703,8 @@ if ($dsDC): ?>
           if (rows[j].querySelector('input[name^="gt"]')) { coNhap = true; }
         }
       }
-      span.textContent = co ? dinhDang(tong, tr.dataset.le === '1') : '—';
-      span.classList.toggle('gia-tri-preview', co && coNhap);   // chỉ tô xanh khi đang gõ (kỳ mở)
+      oDich.textContent = co ? dinhDang(tong, tr.dataset.le === '1') : '—';
+      if (laTongCon) { oDich.classList.toggle('gia-tri-preview', co && coNhap); }  // chỉ tô xanh khi đang gõ
     }
   }
   tbody.addEventListener('input', function (e) {
@@ -686,5 +715,9 @@ if ($dsDC): ?>
 </script>
 <style>
   .gia-tri-tinh.gia-tri-preview { color: var(--xanh-500, #2563eb); font-weight: 600; }
+  .goi-tu-cong { margin-top: 3px; font-size: 11px; color: var(--chu-2, #64748b); line-height: 1.3; }
+  .goi-tu-cong .tc-so { font-weight: 600; }
+  .goi-tu-cong.da-de { color: #b45309; }        /* đã nhập tay đè lên tổng tự cộng */
+  .goi-tu-cong.da-de em { font-style: normal; font-weight: 600; }
 </style>
 <?php dong_trang();

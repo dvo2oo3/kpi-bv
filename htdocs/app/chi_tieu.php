@@ -395,22 +395,29 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
         return null;
     }
 
+    // Ghi chú: luôn là số nhập tay (đọc thẳng số liệu thô), không tự tính.
+    if (($ct['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+        $tho = so_lieu_tho($nam, $idKhoa);
+        return $tho[$idChiTieu][$thang] ?? null;
+    }
+
     if ($ct['nguon'] === 'TONG_CON') {
         $con = con_cua($idChiTieu, $idKhoa);
         if ($con) {                       // có con trong khoa → cộng các con
-            $tong = null;
-            foreach ($con as $c) {
-                if (($c['loai_gia_tri'] ?? '') === 'GHI_CHU') {
-                    continue;             // con là Ghi chú → chỉ hiển thị, không cộng vào tổng
-                }
-                $v = gia_tri_thang($nam, $thang, $idKhoa, $c['id']);
-                if ($v !== null) {
-                    $tong = ($tong ?? 0) + $v;
-                }
-            }
-            return $tong;
+            return tong_con_thang($nam, $thang, $idKhoa, $idChiTieu);
         }
         // Không có con nào trong khoa này → coi như nhập tay (đọc số liệu thô bên dưới)
+    }
+
+    // Tổng của con — sửa tay được: mặc định tự cộng con, nhưng nếu đã nhập số
+    // tay (đè) thì lấy số tay. Dùng cho dòng cha mà các con là "trong đó" (tập con).
+    if ($ct['nguon'] === 'TONG_CON_TAY') {
+        $tho = so_lieu_tho($nam, $idKhoa);
+        $tay = $tho[$idChiTieu][$thang] ?? null;
+        if ($tay !== null) {
+            return $tay;                  // đã sửa tay → dùng số tay
+        }
+        return tong_con_thang($nam, $thang, $idKhoa, $idChiTieu);
     }
 
     if ($ct['nguon'] === 'CONG_THUC') {
@@ -422,6 +429,26 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
 }
 
 /**
+ * Tổng các con của một chỉ tiêu trong một tháng (bỏ qua con là GHI_CHU).
+ * Trả về null nếu không con nào có số. Dùng cho cả TONG_CON và TONG_CON_TAY,
+ * và cho gợi ý "tự cộng" ở trang nhập số liệu.
+ */
+function tong_con_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?float
+{
+    $tong = null;
+    foreach (con_cua($idChiTieu, $idKhoa) as $c) {
+        if (($c['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+            continue;                     // con là Ghi chú → chỉ hiển thị, không cộng
+        }
+        $v = gia_tri_thang($nam, $thang, $idKhoa, (int)$c['id']);
+        if ($v !== null) {
+            $tong = ($tong ?? 0) + $v;
+        }
+    }
+    return $tong;
+}
+
+/**
  * Ô này bác sĩ NHẬP TAY được không (trong bối cảnh một khoa)?
  *   - NHAP_TAY  : luôn nhập.
  *   - TONG_CON  : chỉ nhập khi KHÔNG có con nào trong khoa (tránh dòng "tổng của
@@ -430,7 +457,16 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
  */
 function nhap_tay_duoc(array $ct, int $idKhoa): bool
 {
+    // Ghi chú: luôn nhập tay (chỉ hiển thị, không bao giờ tự tính/cộng con),
+    // kể cả khi nó là dòng có con hay nguồn = tổng của con/công thức.
+    if (($ct['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+        return true;
+    }
     if (($ct['nguon'] ?? '') === 'NHAP_TAY') {
+        return true;
+    }
+    // Tổng của con — sửa tay được: luôn cho nhập để đè lên tổng tự cộng.
+    if (($ct['nguon'] ?? '') === 'TONG_CON_TAY') {
         return true;
     }
     if (($ct['nguon'] ?? '') === 'TONG_CON') {

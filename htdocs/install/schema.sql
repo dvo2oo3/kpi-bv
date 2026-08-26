@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS chi_tieu (
   id_cha       INT          NULL,
   thu_tu       INT          NOT NULL DEFAULT 0,
   loai_gia_tri ENUM('DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU') NOT NULL DEFAULT 'DEM',
-  nguon        ENUM('NHAP_TAY','TONG_CON','CONG_THUC')    NOT NULL DEFAULT 'NHAP_TAY',
+  nguon        ENUM('NHAP_TAY','TONG_CON','TONG_CON_TAY','CONG_THUC') NOT NULL DEFAULT 'NHAP_TAY',
   huong        ENUM('CAO_TOT','THAP_TOT','DICH_CO_DINH')  NOT NULL DEFAULT 'CAO_TOT',
   phan_bo      ENUM('THEO_NGAY','KHONG_CHIA')             NOT NULL DEFAULT 'THEO_NGAY',
   -- Công thức tự cấu hình (khi nguon='CONG_THUC' và không phải mã hệ thống):

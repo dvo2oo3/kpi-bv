@@ -1047,6 +1047,7 @@ mo_trang('Giao chỉ tiêu');
           <select name="nguon" id="sua-nguon" data-tinh>
             <option value="NHAP_TAY"><?= e(NHAN['NHAP_TAY']) ?></option>
             <option value="TONG_CON"><?= e(NHAN['TONG_CON']) ?></option>
+            <option value="TONG_CON_TAY"><?= e(NHAN['TONG_CON_TAY']) ?></option>
             <?php if ($laDevCT): ?><option value="CONG_THUC"><?= e(NHAN['CONG_THUC']) ?></option><?php endif; ?>
           </select></label>
         <label>Cách đánh giá
