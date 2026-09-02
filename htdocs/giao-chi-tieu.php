@@ -1053,14 +1053,13 @@ mo_trang('Giao chỉ tiêu');
           </div>
           <div id="sua-trung-kq" class="trung-kq"></div>
         </label>
-        <label>Loại giá trị <small class="nhan-phu">(riêng khoa này — mặc định theo chung)</small>
+        <label>Loại giá trị <small class="nhan-phu">(riêng khoa này)</small>
           <input type="hidden" name="loai_gia_tri" id="sua-loaichung">
           <select name="loai_rieng" id="sua-loai" data-tinh>
             <option value="">— Theo loại chung —</option>
             <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'] as $v): ?>
               <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option><?php endforeach; ?>
-          </select>
-          <small id="sua-loai-tt" class="nhan-phu"></small></label>
+          </select></label>
         <label>Nguồn số liệu
           <select name="nguon" id="sua-nguon" data-tinh>
             <option value="NHAP_TAY"><?= e(NHAN['NHAP_TAY']) ?></option>
@@ -1460,11 +1459,15 @@ function suaCT(id) {
   if (oChung) { oChung.value = tr.dataset.thutuchung || ''; }
   // Loại giá trị: chung (ẩn, giữ nguyên khi lưu) + riêng khoa (chọn được; rỗng = theo chung)
   var loaiChung = tr.dataset.loaichung || tr.dataset.loai || 'DEM';
+  var loaiRieng = tr.dataset.loairieng || '';
   var elLoaiChung = document.getElementById('sua-loaichung');
   if (elLoaiChung) { elLoaiChung.value = loaiChung; }
-  document.getElementById('sua-loai').value = tr.dataset.loairieng || '';
-  var ttLoai = document.getElementById('sua-loai-tt');
-  if (ttLoai && window.NHAN_LOAI) { ttLoai.textContent = 'Loại chung: ' + (window.NHAN_LOAI[loaiChung] || loaiChung); }
+  var selLoai = document.getElementById('sua-loai');
+  // Ghi tên loại chung ngay trong lựa chọn đầu → luôn thấy mặc định là loại gì.
+  var tenChung = (window.NHAN_LOAI && window.NHAN_LOAI[loaiChung]) || loaiChung;
+  selLoai.options[0].textContent = '— Theo loại chung: ' + tenChung + ' —';
+  selLoai.value = loaiRieng;
+  selLoai.classList.toggle('o-khac-chung', loaiRieng !== '');   // tô nổi khi đặt riêng
   document.getElementById('sua-nguon').value = tr.dataset.nguon || 'NHAP_TAY';
   document.getElementById('sua-huong').value = tr.dataset.huong || 'CAO_TOT';
   document.getElementById('sua-phanbo').value = tr.dataset.phanbo || 'THEO_NGAY';
@@ -1507,6 +1510,8 @@ function veKhoiSuaCT() {
 (function () {
   var n = document.getElementById('sua-nguon');
   if (n) { n.addEventListener('change', veKhoiSuaCT); }
+  var l = document.getElementById('sua-loai');
+  if (l) { l.addEventListener('change', function () { l.classList.toggle('o-khac-chung', l.value !== ''); }); }
 })();
 /* Gán chỉ tiêu chuẩn từ thư viện cho khoa (nhiều mục) → tải lại bảng */
 function ganThuVien(e) {

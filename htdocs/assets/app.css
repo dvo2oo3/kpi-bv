@@ -593,6 +593,12 @@ select {
 .form-tai-khoan .luoi-truong > label > select { margin-top: auto; }
 /* Trường quan trọng/dài chiếm trọn hàng của lưới */
 .form-tai-khoan .luoi-truong > label.o-rong-2 { grid-column: 1 / -1; }
+/* Ô "loại riêng theo khoa" khi ĐANG đặt khác loại chung → tô cam cho dễ thấy */
+.o-khac-chung {
+  border-color: #f59e0b !important;
+  background: #fffbeb;
+  font-weight: 600;
+}
 
 /* Nhóm chọn khoa */
 .nhom-khoa {

@@ -1,4 +1,4 @@
-# Phần mềm Quản lý Chỉ tiêu Kế hoạch Chuyên môn — Phân tích nghiệp vụ
+--# Phần mềm Quản lý Chỉ tiêu Kế hoạch Chuyên môn — Phân tích nghiệp vụ
 
 **Đơn vị:** Trung tâm Y tế Nam Sách — Sở Y tế TP Hải Phòng
 **Căn cứ:** QĐ 74/QĐ-SYT (Sở giao TTYT) → QĐ 33b/QĐ-TTYT ngày 13/01/2026 (TTYT giao các khoa)
