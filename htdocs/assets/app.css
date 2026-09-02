@@ -584,7 +584,13 @@ select {
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 4px 20px;
 }
-.form-tai-khoan .luoi-truong > label { margin-bottom: 16px; }
+.form-tai-khoan .luoi-truong > label {
+  display: flex; flex-direction: column;   /* nhãn + chú thích + ô xếp dọc */
+  margin-bottom: 16px;
+}
+/* Ô nhập/select tụt xuống đáy → các ô cùng hàng THẲNG ĐÁY dù chú thích dài ngắn khác nhau */
+.form-tai-khoan .luoi-truong > label > input,
+.form-tai-khoan .luoi-truong > label > select { margin-top: auto; }
 /* Trường quan trọng/dài chiếm trọn hàng của lưới */
 .form-tai-khoan .luoi-truong > label.o-rong-2 { grid-column: 1 / -1; }
 

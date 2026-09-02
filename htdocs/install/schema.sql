@@ -107,9 +107,11 @@ CREATE TABLE IF NOT EXISTS chi_tieu (
 -- thu_tu: thứ tự RIÊNG của chỉ tiêu trong khoa này (0 = chưa đặt riêng → lùi về
 -- thứ tự thư viện chi_tieu.thu_tu). Nhờ vậy sắp xếp ở một khoa không ảnh hưởng khoa khác.
 CREATE TABLE IF NOT EXISTS chi_tieu_ap_dung (
-  id_chi_tieu INT NOT NULL,
-  id_khoa     INT NOT NULL,
-  thu_tu      INT NOT NULL DEFAULT 0,
+  id_chi_tieu  INT NOT NULL,
+  id_khoa      INT NOT NULL,
+  thu_tu       INT NOT NULL DEFAULT 0,
+  -- loai_gia_tri: loại giá trị RIÊNG của khoa (NULL = theo loại chung của chi_tieu)
+  loai_gia_tri ENUM('DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU') NULL DEFAULT NULL,
   PRIMARY KEY (id_chi_tieu, id_khoa),
   KEY idx_ctad_khoa (id_khoa),
   CONSTRAINT fk_ctad_ct   FOREIGN KEY (id_chi_tieu) REFERENCES chi_tieu(id) ON DELETE CASCADE,

@@ -135,6 +135,28 @@ if (la_post()) {
         }
     }
 
+    /* ---------- Dọn: ngừng dùng tất cả mã "mồ côi" (chưa gán khoa nào) ---------- */
+    if ($viec === 'ngung_mo_coi' && co_quyen('chitieu.ngung')) {
+        $moCoi = qAll('SELECT id, ma FROM chi_tieu c
+                        WHERE hoat_dong = 1
+                          AND NOT EXISTS (SELECT 1 FROM chi_tieu_ap_dung a
+                                          WHERE a.id_chi_tieu = c.id)');
+        $dem = 0;
+        db()->beginTransaction();
+        foreach ($moCoi as $c) {
+            if (la_he_thong($c['ma'])) { continue; }   // không đụng chỉ tiêu hệ thống
+            q('UPDATE chi_tieu SET hoat_dong = 0 WHERE id = ?', [(int)$c['id']]);
+            $dem++;
+        }
+        db()->commit();
+        ghi_nhat_ky('NGUNG_MO_COI', '', $dem . ' mã');
+        nhan_tin($dem ? 'ok' : 'canh-bao', $dem
+            ? "Đã ngừng dùng $dem mã chưa gán khoa. Chúng ẩn khỏi gợi ý; số liệu cũ (nếu có) "
+              . 'vẫn giữ — bấm "Dùng lại" nếu cần.'
+            : 'Không có mã mồ côi nào để dọn.');
+        chuyen_huong('/danh-muc-chi-tieu.php?loc=mo_coi');
+    }
+
     /* ---------- Đổi chuẩn (thư viện) ↔ riêng ---------- */
     if ($viec === 'doi_thu_vien' && $duocSua) {
         $id = (int)post('id');
@@ -191,17 +213,7 @@ $soGoc = count(array_filter($cayDayDu, fn($c) => $c['cap'] === 0));
 $soRieng = count(array_filter($cayDayDu,
     fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
 
-// Lọc theo thư viện: chuẩn / riêng (hệ thống luôn tính là chuẩn)
-$loc = in_array($_GET['loc'] ?? '', ['chuan', 'rieng'], true) ? $_GET['loc'] : '';
-$cay = $cayDayDu;
-if ($loc === 'chuan') {
-    $cay = array_values(array_filter($cay,
-        fn($c) => la_he_thong($c['ma']) || (int)($c['la_chuan'] ?? 1) === 1));
-} elseif ($loc === 'rieng') {
-    $cay = array_values(array_filter($cay,
-        fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
-}
-
+// Khoa áp dụng mỗi chỉ tiêu — để lọc "chưa gán khoa" và hiện cột Khoa áp dụng.
 $apDung = [];
 foreach (qAll('SELECT * FROM chi_tieu_ap_dung') as $r) {
     $apDung[(int)$r['id_chi_tieu']][] = (int)$r['id_khoa'];
@@ -209,6 +221,23 @@ foreach (qAll('SELECT * FROM chi_tieu_ap_dung') as $r) {
 $maKhoa = [];
 foreach ($dsKhoa as $k) {
     $maKhoa[(int)$k['id']] = $k['ma'];
+}
+// Mã "mồ côi" = chưa gán khoa nào. Dọn được = mồ côi + đang dùng + không phải hệ thống.
+$soMoCoi    = count(array_filter($cayDayDu, fn($c) => !isset($apDung[(int)$c['id']])));
+$soMoCoiDon = count(array_filter($cayDayDu,
+    fn($c) => !isset($apDung[(int)$c['id']]) && (int)$c['hoat_dong'] === 1 && !la_he_thong($c['ma'])));
+
+// Lọc theo thư viện: chuẩn / riêng / chưa gán khoa (hệ thống luôn tính là chuẩn)
+$loc = in_array($_GET['loc'] ?? '', ['chuan', 'rieng', 'mo_coi'], true) ? $_GET['loc'] : '';
+$cay = $cayDayDu;
+if ($loc === 'chuan') {
+    $cay = array_values(array_filter($cay,
+        fn($c) => la_he_thong($c['ma']) || (int)($c['la_chuan'] ?? 1) === 1));
+} elseif ($loc === 'rieng') {
+    $cay = array_values(array_filter($cay,
+        fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
+} elseif ($loc === 'mo_coi') {
+    $cay = array_values(array_filter($cay, fn($c) => !isset($apDung[(int)$c['id']])));
 }
 
 mo_trang('Thư viện chỉ tiêu');
@@ -243,13 +272,29 @@ mo_trang('Thư viện chỉ tiêu');
   <a class="nut nut-nho <?= $loc === '' ? '' : 'nut-phu' ?>" href="?">Tất cả</a>
   <a class="nut nut-nho <?= $loc === 'chuan' ? '' : 'nut-phu' ?>" href="?loc=chuan">Chuẩn (thư viện)</a>
   <a class="nut nut-nho <?= $loc === 'rieng' ? '' : 'nut-phu' ?>" href="?loc=rieng">Riêng (<?= $soRieng ?>)</a>
+  <a class="nut nut-nho <?= $loc === 'mo_coi' ? '' : 'nut-phu' ?>" href="?loc=mo_coi"
+     title="Chỉ tiêu chưa khoa nào áp dụng — thường là mã dư/mồ côi">Chưa gán khoa (<?= $soMoCoi ?>)</a>
   <input type="search" class="o-tim" data-tim="#bang-dm" data-dem="#dm-dem"
          placeholder="Tìm mã / nội dung chỉ tiêu…" autocomplete="off">
   <span id="dm-dem" class="phu"></span>
 </p>
 
+<?php if ($loc === 'mo_coi' && co_quyen('chitieu.ngung') && $soMoCoiDon > 0): ?>
+  <p class="hang-nut" style="margin:-.5rem 0 1rem">
+    <form method="post" style="display:inline">
+      <?= csrf_field() ?>
+      <input type="hidden" name="viec" value="ngung_mo_coi">
+      <button class="nut nut-nho nut-canh" type="submit"
+              data-xac-nhan="Ngừng dùng <?= $soMoCoiDon ?> mã chưa gán khoa nào? Chúng sẽ ẩn khỏi gợi ý mã và danh mục dùng. Số liệu cũ (nếu có) vẫn được giữ — có thể bấm &quot;Dùng lại&quot; sau.">
+        🧹 Dọn: ngừng dùng <?= $soMoCoiDon ?> mã mồ côi
+      </button>
+    </form>
+    <span class="phu">Chỉ ẩn khỏi danh sách dùng, không xóa — Dùng lại được bất cứ lúc nào.</span>
+  </p>
+<?php endif; ?>
+
 <?php if (!$cay && $loc): ?>
-  <div class="tb tb-canh-bao">Không có chỉ tiêu nào trong nhóm “<?= $loc === 'rieng' ? 'Riêng' : 'Chuẩn' ?>”.
+  <div class="tb tb-canh-bao">Không có chỉ tiêu nào trong nhóm “<?= $loc === 'rieng' ? 'Riêng' : ($loc === 'mo_coi' ? 'Chưa gán khoa' : 'Chuẩn') ?>”.
     <a href="?">Xem tất cả</a>.</div>
 <?php elseif (!$cay): ?>
   <div class="tb tb-canh-bao">
@@ -387,7 +432,7 @@ mo_trang('Thư viện chỉ tiêu');
                   <input type="text" name="mo_ta" value="<?= e($ct['mo_ta'] ?? '') ?>"
                          placeholder="VD: BHYT của bệnh nhân điều trị ngoại trú"></label>
                 <label>Đơn vị <input type="text" name="don_vi" value="<?= e($ct['don_vi']) ?>"></label>
-                <label>Thứ tự chung <small class="nhan-phu">(vị trí trong thư viện: dòng đầu nhóm = 1; gõ số để chuyển tới vị trí đó — áp dụng chung + làm mặc định cho mọi khoa)</small>
+                <label>Thứ tự chung <small class="nhan-phu">(vị trí 1, 2, 3… trong nhóm — chung cho mọi khoa)</small>
                   <input type="text" inputmode="numeric" name="thu_tu" value="<?= vi_tri_thu_vien((int)$ct['id']) ?>"></label>
                 <?php if (!$heThong): ?>
                   <label>Loại giá trị

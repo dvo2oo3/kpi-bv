@@ -59,6 +59,9 @@ CREATE TABLE chi_tieu_ap_dung (
   -- thu_tu: thứ tự RIÊNG của chỉ tiêu trong khoa này (0 = chưa đặt → lùi về
   -- thứ tự thư viện chi_tieu.thu_tu). Sắp xếp ở một khoa không ảnh hưởng khoa khác.
   thu_tu INTEGER NOT NULL DEFAULT 0,
+  -- loai_gia_tri: loại giá trị RIÊNG của khoa này (NULL = theo loại chung
+  -- chi_tieu.loai_gia_tri). Cho phép cùng 1 mã: khoa A là Ghi chú, khoa B Đếm.
+  loai_gia_tri TEXT DEFAULT NULL,
   PRIMARY KEY (id_chi_tieu, id_khoa)
 );
 

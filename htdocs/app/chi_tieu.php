@@ -65,6 +65,34 @@ function ids_gop_vao(string $ma): array
     return $ids;
 }
 
+/** Loại giá trị RIÊNG mà mỗi khoa đặt đè (id_chi_tieu => loại). Chỉ gồm dòng có
+ *  đặt riêng; dòng nào không có = theo loại chung của chi_tieu. Có bọc try/catch
+ *  cho CSDL cũ chưa có cột loai_gia_tri ở chi_tieu_ap_dung. */
+function loai_ap_dung(int $idKhoa): array
+{
+    static $bo_nho = [];
+    if (!array_key_exists($idKhoa, $bo_nho)) {
+        $m = [];
+        try {
+            foreach (qAll('SELECT id_chi_tieu, loai_gia_tri FROM chi_tieu_ap_dung
+                            WHERE id_khoa = ? AND loai_gia_tri IS NOT NULL', [$idKhoa]) as $r) {
+                $m[(int)$r['id_chi_tieu']] = $r['loai_gia_tri'];
+            }
+        } catch (Throwable $e) {
+            // Cột chưa tồn tại (CSDL cũ) → coi như không khoa nào đặt riêng.
+        }
+        $bo_nho[$idKhoa] = $m;
+    }
+    return $bo_nho[$idKhoa];
+}
+
+/** Loại giá trị HIỆU DỤNG của một chỉ tiêu trong một khoa: loại riêng của khoa
+ *  nếu có, không thì loại chung của thư viện. */
+function loai_hieu_dung(int $idKhoa, array $ct): string
+{
+    return loai_ap_dung($idKhoa)[(int)$ct['id']] ?? ($ct['loai_gia_tri'] ?? 'DEM');
+}
+
 /** Các chỉ tiêu áp dụng cho một khoa, đã sắp theo cây (cha → con → cháu…).
  *  Lồng KHÔNG giới hạn số cấp; 'cap' là độ sâu (gốc = 0).
  *
@@ -119,11 +147,16 @@ function chi_tieu_cua_khoa(int $idKhoa): array
     }
     $goc = $sapAnhEm($goc);
 
+    $loaiRieng = loai_ap_dung($idKhoa);   // id => loại riêng khoa này (nếu có)
     $ketQua = [];
-    $duyet = function (int $id, int $cap) use (&$duyet, &$ketQua, &$conCua, $tatCa, $ttKhoa) {
+    $duyet = function (int $id, int $cap) use (&$duyet, &$ketQua, &$conCua, $tatCa, $ttKhoa, $loaiRieng) {
         $ct = $tatCa[$id];
         $ct['cap']    = $cap;
         $ct['thu_tu'] = $ttKhoa($id);   // trả về thứ tự RIÊNG của khoa (số mốc để sắp)
+        // Loại giá trị theo khoa: giữ loại chung để tham chiếu, đặt loại hiệu dụng.
+        $ct['loai_chung']    = $ct['loai_gia_tri'];
+        $ct['loai_rieng']    = $loaiRieng[$id] ?? null;             // '' rỗng = theo chung
+        $ct['loai_gia_tri']  = $ct['loai_rieng'] ?? $ct['loai_chung'];
         $ketQua[] = $ct;
         foreach ($conCua[$id] ?? [] as $cid) {
             $duyet($cid, $cap + 1);      // duyệt sâu: cháu, chắt…
@@ -395,8 +428,8 @@ function gia_tri_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?floa
         return null;
     }
 
-    // Ghi chú: luôn là số nhập tay (đọc thẳng số liệu thô), không tự tính.
-    if (($ct['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+    // Ghi chú (theo loại HIỆU DỤNG của khoa): luôn là số nhập tay, không tự tính.
+    if (loai_hieu_dung($idKhoa, $ct) === 'GHI_CHU') {
         $tho = so_lieu_tho($nam, $idKhoa);
         return $tho[$idChiTieu][$thang] ?? null;
     }
@@ -437,8 +470,8 @@ function tong_con_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?flo
 {
     $tong = null;
     foreach (con_cua($idChiTieu, $idKhoa) as $c) {
-        if (($c['loai_gia_tri'] ?? '') === 'GHI_CHU') {
-            continue;                     // con là Ghi chú → chỉ hiển thị, không cộng
+        if (loai_hieu_dung($idKhoa, $c) === 'GHI_CHU') {
+            continue;                     // con là Ghi chú (theo khoa) → không cộng
         }
         $v = gia_tri_thang($nam, $thang, $idKhoa, (int)$c['id']);
         if ($v !== null) {
@@ -457,9 +490,9 @@ function tong_con_thang(int $nam, int $thang, int $idKhoa, int $idChiTieu): ?flo
  */
 function nhap_tay_duoc(array $ct, int $idKhoa): bool
 {
-    // Ghi chú: luôn nhập tay (chỉ hiển thị, không bao giờ tự tính/cộng con),
-    // kể cả khi nó là dòng có con hay nguồn = tổng của con/công thức.
-    if (($ct['loai_gia_tri'] ?? '') === 'GHI_CHU') {
+    // Ghi chú (theo loại hiệu dụng của khoa): luôn nhập tay (chỉ hiển thị, không
+    // bao giờ tự tính/cộng con), kể cả khi có con hay nguồn = tổng của con/công thức.
+    if (loai_hieu_dung($idKhoa, $ct) === 'GHI_CHU') {
         return true;
     }
     if (($ct['nguon'] ?? '') === 'NHAP_TAY') {
@@ -493,8 +526,9 @@ function gia_tri_luy_ke(int $nam, array $cacThang, int $idKhoa, int $idChiTieu):
         return tinh_cong_thuc($ct['ma'], $nam, $cacThang, $idKhoa);
     }
 
-    // HANG_SO và GHI_CHU: không cộng dồn — lấy giá trị tháng gần nhất có nhập.
-    if (in_array($ct['loai_gia_tri'], ['HANG_SO', 'GHI_CHU'], true)) {
+    // HANG_SO và GHI_CHU (theo loại hiệu dụng của khoa): không cộng dồn — lấy
+    // giá trị tháng gần nhất có nhập.
+    if (in_array(loai_hieu_dung($idKhoa, $ct), ['HANG_SO', 'GHI_CHU'], true)) {
         $cuoi = null;
         foreach ($cacThang as $t) {
             $v = gia_tri_thang($nam, $t, $idKhoa, $idChiTieu);

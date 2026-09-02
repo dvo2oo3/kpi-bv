@@ -14,6 +14,7 @@ function dong_giao(array $ct, ?array $r, int $nam, int $idKhoa,
       <tr class="<?= $ct['cap'] ? 'dong-con' : '' ?><?= $laMoi ? ' vua-them' : '' ?>"
           data-id="<?= (int)$ct['id'] ?>" data-cha="<?= $ct['id_cha'] !== null ? (int)$ct['id_cha'] : '' ?>"
           data-loai="<?= e($ct['loai_gia_tri']) ?>" data-nguon="<?= e($ct['nguon']) ?>"
+          data-loaichung="<?= e($ct['loai_chung'] ?? $ct['loai_gia_tri']) ?>" data-loairieng="<?= e($ct['loai_rieng'] ?? '') ?>"
           data-huong="<?= e($ct['huong']) ?>" data-phanbo="<?= e($ct['phan_bo']) ?>"
           data-pheptinh="<?= e((string)($ct['phep_tinh'] ?? '')) ?>"
           data-cttu="<?= e((string)($ct['ct_tu'] ?? '')) ?>" data-ctmau="<?= e((string)($ct['ct_mau'] ?? '')) ?>"
@@ -559,6 +560,14 @@ if (la_post()) {
                WHERE id=?',
                 [$tenS, $dvS, $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo'],
                  $f['phep_tinh'], $f['ct_tu'], $f['ct_mau'], $f['nhan_so_ngay'], $gvLuu, $chuan, $moTaS, $id]);
+            // Loại giá trị RIÊNG theo khoa: '' (theo chung) → NULL; khác → ghi đè cho khoa này.
+            // (Ô "loai_gia_tri" ẩn ở form Giao chỉ tiêu vẫn giữ loại CHUNG — không đổi ở đây.)
+            $loaiRieng = post('loai_rieng');
+            if (!in_array($loaiRieng, ['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'], true)) {
+                $loaiRieng = '';   // rỗng/không hợp lệ = theo loại chung
+            }
+            q('UPDATE chi_tieu_ap_dung SET loai_gia_tri = ? WHERE id_chi_tieu = ? AND id_khoa = ?',
+                [$loaiRieng === '' ? null : $loaiRieng, $id, $idKhoa]);
             // (Vị trí trong bảng do phía client xử lý bằng cơ chế kéo-thả — xem datViTri.)
             // Đổi mã (nếu có): cập nhật luôn các tham chiếu theo mã (gộp vào / công thức).
             if ($maMoi !== '' && $maMoi !== $cu['ma']) {
@@ -577,6 +586,12 @@ if (la_post()) {
                 exit;
             }
             $ct2 = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
+            // Loại riêng khoa vừa lưu (đọc tươi, không qua cache) để dòng trả về đúng.
+            $ovMoi = qVal('SELECT loai_gia_tri FROM chi_tieu_ap_dung WHERE id_chi_tieu=? AND id_khoa=?',
+                [$id, $idKhoa]);
+            $ct2['loai_chung']   = $ct2['loai_gia_tri'];
+            $ct2['loai_rieng']   = $ovMoi ?: '';
+            $ct2['loai_gia_tri'] = $ovMoi ?: $ct2['loai_gia_tri'];
             $ct2['cap']    = $ct2['id_cha'] !== null ? 1 : 0;
             $ct2['vi_tri'] = 1;
             // Lấy độ sâu + số thứ hạng thật trong bảng của khoa để hiển thị đúng.
@@ -1038,11 +1053,14 @@ mo_trang('Giao chỉ tiêu');
           </div>
           <div id="sua-trung-kq" class="trung-kq"></div>
         </label>
-        <label>Loại giá trị
-          <select name="loai_gia_tri" id="sua-loai" data-tinh>
+        <label>Loại giá trị <small class="nhan-phu">(riêng khoa này — mặc định theo chung)</small>
+          <input type="hidden" name="loai_gia_tri" id="sua-loaichung">
+          <select name="loai_rieng" id="sua-loai" data-tinh>
+            <option value="">— Theo loại chung —</option>
             <?php foreach (['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'] as $v): ?>
               <option value="<?= $v ?>"><?= e(NHAN[$v]) ?></option><?php endforeach; ?>
-          </select></label>
+          </select>
+          <small id="sua-loai-tt" class="nhan-phu"></small></label>
         <label>Nguồn số liệu
           <select name="nguon" id="sua-nguon" data-tinh>
             <option value="NHAP_TAY"><?= e(NHAN['NHAP_TAY']) ?></option>
@@ -1440,7 +1458,13 @@ function suaCT(id) {
   document.getElementById('sua-thutu').value = tr.dataset.thutu || '';
   var oChung = document.getElementById('sua-thutuchung');
   if (oChung) { oChung.value = tr.dataset.thutuchung || ''; }
-  document.getElementById('sua-loai').value = tr.dataset.loai || 'DEM';
+  // Loại giá trị: chung (ẩn, giữ nguyên khi lưu) + riêng khoa (chọn được; rỗng = theo chung)
+  var loaiChung = tr.dataset.loaichung || tr.dataset.loai || 'DEM';
+  var elLoaiChung = document.getElementById('sua-loaichung');
+  if (elLoaiChung) { elLoaiChung.value = loaiChung; }
+  document.getElementById('sua-loai').value = tr.dataset.loairieng || '';
+  var ttLoai = document.getElementById('sua-loai-tt');
+  if (ttLoai && window.NHAN_LOAI) { ttLoai.textContent = 'Loại chung: ' + (window.NHAN_LOAI[loaiChung] || loaiChung); }
   document.getElementById('sua-nguon').value = tr.dataset.nguon || 'NHAP_TAY';
   document.getElementById('sua-huong').value = tr.dataset.huong || 'CAO_TOT';
   document.getElementById('sua-phanbo').value = tr.dataset.phanbo || 'THEO_NGAY';
@@ -1501,7 +1525,7 @@ function luuSuaCT(e) {
   e.preventDefault();
   var id = document.getElementById('sua-id').value;
   var fd = new FormData(e.target); fd.append('ajax', '1');
-  ['loai_gia_tri', 'nguon', 'huong', 'phan_bo'].forEach(function (n) {
+  ['loai_gia_tri', 'loai_rieng', 'nguon', 'huong', 'phan_bo'].forEach(function (n) {
     if (!fd.has(n)) { var el = document.querySelector('#f-sua-ct [name="' + n + '"]');
       if (el) { fd.append(n, el.value); } }
   });
@@ -1675,6 +1699,10 @@ document.addEventListener('click', function (e) {
     } ?>
 <script>
 window.DS_CT = <?= json_encode($dsCombo, JSON_UNESCAPED_UNICODE) ?>;
+window.NHAN_LOAI = <?= json_encode([
+    'DEM' => NHAN['DEM'], 'TRUNG_BINH' => NHAN['TRUNG_BINH'], 'TY_LE' => NHAN['TY_LE'],
+    'HANG_SO' => NHAN['HANG_SO'], 'GHI_CHU' => NHAN['GHI_CHU'],
+], JSON_UNESCAPED_UNICODE) ?>;
 (function () {
   function boDau(s){ return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase(); }
   var listEl = null, kqHienTai = [], iChon = -1;
