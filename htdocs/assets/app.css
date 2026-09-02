@@ -1182,6 +1182,13 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
 .lien-ktl:hover { background: #e0f2fe; }
 .combo-muc strong { font-weight: 600; color: var(--chu-1, #1e293b); }
 .combo-muc em { font-size: 11.5px; }
+/* Nhãn trạng thái gán khoa trong gợi ý mã */
+.combo-khoa {
+  display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 600; white-space: nowrap; vertical-align: middle;
+}
+.combo-khoa-co    { background: var(--xanh-100, #e0f2fe); color: var(--xanh-700, #0369a1); }
+.combo-khoa-khong { background: #fef3c7; color: #b45309; }
 
 /* Toast: thông báo nổi góc phải, tự tắt (thay alert thô) */
 #toast-vung {
@@ -1746,6 +1753,16 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
   50%      { background: #d1fae5; }
 }
 .the-moi { background: var(--ok-nen); color: var(--ok); border: 1px solid var(--ok-vien); }
+
+/* Link mã khoa ở cột "Khoa áp dụng" (Thư viện) → tới nơi áp dụng */
+.khoa-lien-ket { color: var(--xanh-700, #0369a1); text-decoration: none; font-weight: 600; }
+.khoa-lien-ket:hover { text-decoration: underline; }
+/* Dòng được nhảy tới từ link (#ct-<id>) — làm nổi rồi mờ dần */
+tr.dong-noi-bat > td { animation: dongNoiBat 2.6s ease-out 1; }
+@keyframes dongNoiBat {
+  0%, 30% { background: #fef9c3; box-shadow: inset 3px 0 0 #eab308; }
+  100%    { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
 
 /* Nút "+ con" trên dòng cha — mờ nhẹ, rõ khi trỏ vào dòng */
 .them-con-nut {

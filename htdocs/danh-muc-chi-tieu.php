@@ -303,8 +303,16 @@ mo_trang('Thư viện chỉ tiêu');
         <?php if ($ds):
             // Khoa áp dụng có thể tới 11 mã. Gói lại một dòng, trỏ chuột xem
             // đủ — nếu để xuống dòng thì dòng bảng cao gấp rưỡi dòng bên cạnh.
-            $dsMa = implode(', ', array_map(fn($i) => $maKhoa[$i] ?? '?', $ds)); ?>
-          <span class="ds-gon" title="<?= e($dsMa) ?>"><?= e($dsMa) ?></span>
+            // Mỗi mã là LINK: bấm → tới trang Giao chỉ tiêu của khoa đó, cuộn
+            // tới đúng dòng chỉ tiêu này (mỏ neo #ct-<id>).
+            $idCT = (int)$ct['id'];
+            $dsMa = implode(', ', array_map(fn($i) => $maKhoa[$i] ?? '?', $ds));
+            $link = array_map(function ($i) use ($maKhoa, $idCT) {
+                return '<a class="khoa-lien-ket" href="/giao-chi-tieu.php?khoa=' . (int)$i
+                     . '#ct-' . $idCT . '" title="Tới nơi áp dụng ở khoa này">'
+                     . e($maKhoa[$i] ?? '?') . '</a>';
+            }, $ds); ?>
+          <span class="ds-gon" title="Bấm mã khoa để tới nơi áp dụng — <?= e($dsMa) ?>"><?= implode(', ', $link) ?></span>
         <?php else: ?>
           <span class="canh-bao-nho">chưa gán khoa</span>
         <?php endif; ?>

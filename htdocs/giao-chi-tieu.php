@@ -23,7 +23,7 @@ function dong_giao(array $ct, ?array $r, int $nam, int $idKhoa,
           data-thutuchung="<?= vi_tri_thu_vien((int)$ct['id']) ?>"
           data-mota="<?= e((string)($ct['mo_ta'] ?? '')) ?>"
           data-hethong="<?= la_he_thong($ct['ma']) ? 1 : 0 ?>"
-          <?= $laMoi ? 'id="dong-moi"' : '' ?>>
+          <?= $laMoi ? 'id="dong-moi"' : 'id="ct-' . (int)$ct['id'] . '"' ?>>
         <td<?= $ct['cap'] ? ' style="padding-left:' . (6 + (int)$ct['cap'] * 20) . 'px"' : '' ?>>
           <div class="o-ten-ct">
             <?= $ct['cap'] ? '<span class="thut">↳</span>' : '' ?>
@@ -1612,6 +1612,19 @@ document.addEventListener('click', function (e) {
   var m = document.getElementById('dong-moi');
   if (m) { m.scrollIntoView({ block: 'center' }); }
 })();
+
+/* Mở từ link "Khoa áp dụng" bên Thư viện (#ct-<id>) → cuộn tới + làm nổi dòng đó. */
+(function () {
+  function toiDong() {
+    var h = location.hash; if (!/^#ct-\d+$/.test(h)) { return; }
+    var tr = document.getElementById(h.slice(1)); if (!tr) { return; }
+    tr.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    tr.classList.add('dong-noi-bat');
+    setTimeout(function () { tr.classList.remove('dong-noi-bat'); }, 2600);
+  }
+  window.addEventListener('load', toiDong);
+  window.addEventListener('hashchange', toiDong);
+})();
 </script>
 
 <h2>Xem trước phân bổ 12 tháng</h2>
@@ -1647,12 +1660,18 @@ document.addEventListener('click', function (e) {
 <?php if ($duocThemCT || $duocSuaCT):
     // Dữ liệu cho combobox "gõ để tìm chỉ tiêu đã có / gõ mới" và cho ô Mã ở popup Sửa
     $tcCombo = tat_ca_chi_tieu();
+    // Số khoa đang áp dụng mỗi chỉ tiêu → để gợi ý báo "đã gán / chưa gán khoa".
+    $demKhoaCT = [];
+    foreach (qAll('SELECT id_chi_tieu, COUNT(*) sl FROM chi_tieu_ap_dung GROUP BY id_chi_tieu') as $r) {
+        $demKhoaCT[(int)$r['id_chi_tieu']] = (int)$r['sl'];
+    }
     $dsCombo = [];
     foreach ($tcCombo as $c) {
         $chaTen = ($c['id_cha'] && isset($tcCombo[(int)$c['id_cha']]))
             ? $tcCombo[(int)$c['id_cha']]['ten'] : '';
         $dsCombo[] = ['i' => (int)$c['id'], 'm' => $c['ma'], 't' => $c['ten'],
-                      'c' => $chaTen, 'd' => $c['don_vi']];
+                      'c' => $chaTen, 'd' => $c['don_vi'],
+                      'k' => $demKhoaCT[(int)$c['id']] ?? 0];   // số khoa áp dụng
     } ?>
 <script>
 window.DS_CT = <?= json_encode($dsCombo, JSON_UNESCAPED_UNICODE) ?>;
@@ -1803,6 +1822,10 @@ window.DS_CT = <?= json_encode($dsCombo, JSON_UNESCAPED_UNICODE) ?>;
       var em = document.createElement('em'); em.className = 'phu';
       em.textContent = ' — ' + c.t + (c.c ? ' (dưới ' + c.c + ')' : '');
       it.appendChild(st); it.appendChild(em);
+      var tag = document.createElement('span');   // trạng thái gán khoa
+      if (c.k > 0) { tag.className = 'combo-khoa combo-khoa-co'; tag.textContent = c.k + ' khoa'; }
+      else { tag.className = 'combo-khoa combo-khoa-khong'; tag.textContent = 'chưa gán khoa'; }
+      it.appendChild(tag);
       it.addEventListener('mousedown', function (e){ e.preventDefault(); oMa.value = c.m; dongList(); window.kiemTraMaSua(); });
       list.appendChild(it);
     });
