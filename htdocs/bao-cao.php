@@ -118,12 +118,34 @@ mo_trang('Báo cáo & KPI');
       <option value="nang_luc" <?= $goc === 'nang_luc' ? 'selected' : '' ?>>Chỉ tiêu năng lực</option>
     </select>
   </label>
+  <label class="o-chon" style="align-self:flex-end;display:inline-flex;gap:6px;align-items:center;font-weight:600;white-space:nowrap">
+    <input type="checkbox" name="thang" value="1" <?= !empty($_GET['thang']) ? 'checked' : '' ?> onchange="this.form.submit()"> 📅 Số liệu 12 tháng
+  </label>
 </form>
 
 <?php
 $bang = $pham_vi === 'toan_vien'
     ? bang_toan_vien($nam, $cacThang, $goc)
     : bang_theo_khoa($nam, $cacThang, $idKhoa, $goc);
+
+// Xem chi tiết 12 tháng (đối chiếu bảng Excel): T1..T12 + lũy kế Quý/6T/9T/năm.
+$xem12  = !empty($_GET['thang']);
+$idCh   = $pham_vi === 'khoa' ? $idKhoa : null;
+$lkRanges = ['q1' => [1,2,3], 'h6' => [1,2,3,4,5,6], 'n9' => range(1,9), 'yr' => range(1,12)];
+$tvLK = null;                               // toàn viện: lũy kế từng kỳ, map theo mã
+if ($xem12 && $pham_vi === 'toan_vien') {
+    $tvLK = [];
+    foreach ($lkRanges as $k => $rng) {
+        $tvLK[$k] = [];
+        foreach (bang_toan_vien($nam, $rng, $goc) as $r) { $tvLK[$k][$r['ct']['ma']] = $r['thuc_hien']; }
+    }
+}
+/** Lũy kế của 1 dòng theo kỳ (khoa dùng gia_tri_luy_ke, toàn viện dùng map đã tính). */
+$bcLuyKe = function (array $d, string $key, array $rng) use ($pham_vi, $idKhoa, $nam, $tvLK) {
+    return $pham_vi === 'khoa'
+        ? gia_tri_luy_ke($nam, $rng, $idKhoa, (int)$d['ct']['id'])
+        : ($tvLK[$key][$d['ct']['ma']] ?? null);
+};
 
 // Tổng hợp mức độ đạt
 $dem = ['dat' => 0, 'canh_bao' => 0, 'khong_dat' => 0, 'vuot' => 0, 'na' => 0];
@@ -156,6 +178,60 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 <?php if ($duocSapXep): ?>
   <p class="phu" style="margin:.25rem 0"><span class="the the-nho">Kéo <span aria-hidden="true">⠿</span> hoặc bấm ▲▼ để đổi vị trí — chỉ đổi thứ tự của khoa này.</span></p>
 <?php endif; ?>
+<?php if ($xem12): ?>
+<style>
+  .nhan-ton,.nhan-tyle{display:inline-block;font-size:10.5px;font-weight:700;line-height:1.3;padding:0 6px;border-radius:999px;margin-left:5px;vertical-align:middle;white-space:nowrap}
+  .nhan-ton{background:#e0f2fe;color:#075985;border:1px solid #7dd3fc}
+  .nhan-tyle{background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe}
+  tr.dong-ton>td:first-child{box-shadow:inset 3px 0 0 #38bdf8}
+</style>
+<p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế Quý I / 6 tháng / 9 tháng / Cả năm — để đối chiếu bảng Excel.
+  Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.</p>
+<div class="cuon-ngang">
+<table class="bang" style="font-size:12.5px">
+  <thead>
+    <tr>
+      <th class="giua" style="width:34px">STT</th>
+      <th style="min-width:210px">Nội dung</th>
+      <th>ĐVT</th>
+      <th class="phai">KH năm</th>
+      <th class="phai">T1</th><th class="phai">T2</th><th class="phai">T3</th>
+      <th class="phai" style="background:#fef3c7">Quý I</th>
+      <th class="phai">T4</th><th class="phai">T5</th><th class="phai">T6</th>
+      <th class="phai" style="background:#fef3c7">6T</th>
+      <th class="phai">T7</th><th class="phai">T8</th><th class="phai">T9</th>
+      <th class="phai" style="background:#fef3c7">9T</th>
+      <th class="phai">T10</th><th class="phai">T11</th><th class="phai">T12</th>
+      <th class="phai" style="background:#fde68a">Cả năm</th>
+    </tr>
+  </thead>
+  <tbody>
+  <?php $stt12 = 0; foreach ($bang as $d):
+      $loai2  = $d['ct']['loai_gia_tri'];
+      $le2    = in_array($loai2, ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0;
+      $laTon  = $loai2 === 'HANG_SO';
+      $laTyLe = $le2 === 1;
+      if (!$d['cap']) { $stt12++; }
+      $m = chuoi_12_thang($nam, $idCh, $d['ct']['ma']); ?>
+    <tr class="<?= $d['cap'] ? 'dong-con' : '' ?><?= $laTon ? ' dong-ton' : '' ?>">
+      <td class="giua nho"><?= $d['cap'] ? '' : $stt12 ?></td>
+      <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?><?php if ($laTon): ?> <span class="nhan-ton" title="Số tồn — lũy kế lấy số CUỐI KỲ, không cộng dồn các tháng">số tồn</span><?php elseif ($laTyLe): ?> <span class="nhan-tyle" title="Tỷ lệ / trung bình — tính lại theo công thức, không cộng dồn">tỷ lệ/TB</span><?php endif; ?></td>
+      <td class="nho"><?= e($d['ct']['don_vi']) ?></td>
+      <td class="phai nho"><?= so($d['chi_tieu_nam'], $le2) ?></td>
+      <td class="phai"><?= so($m[1] ?? null, $le2) ?></td><td class="phai"><?= so($m[2] ?? null, $le2) ?></td><td class="phai"><?= so($m[3] ?? null, $le2) ?></td>
+      <td class="phai" style="background:#fef3c7"><strong><?= so($bcLuyKe($d, 'q1', [1,2,3]), $le2) ?></strong></td>
+      <td class="phai"><?= so($m[4] ?? null, $le2) ?></td><td class="phai"><?= so($m[5] ?? null, $le2) ?></td><td class="phai"><?= so($m[6] ?? null, $le2) ?></td>
+      <td class="phai" style="background:#fef3c7"><strong><?= so($bcLuyKe($d, 'h6', [1,2,3,4,5,6]), $le2) ?></strong></td>
+      <td class="phai"><?= so($m[7] ?? null, $le2) ?></td><td class="phai"><?= so($m[8] ?? null, $le2) ?></td><td class="phai"><?= so($m[9] ?? null, $le2) ?></td>
+      <td class="phai" style="background:#fef3c7"><strong><?= so($bcLuyKe($d, 'n9', range(1,9)), $le2) ?></strong></td>
+      <td class="phai"><?= so($m[10] ?? null, $le2) ?></td><td class="phai"><?= so($m[11] ?? null, $le2) ?></td><td class="phai"><?= so($m[12] ?? null, $le2) ?></td>
+      <td class="phai" style="background:#fde68a"><strong><?= so($bcLuyKe($d, 'yr', range(1,12)), $le2) ?></strong></td>
+    </tr>
+  <?php endforeach; ?>
+  </tbody>
+</table>
+</div>
+<?php else: ?>
 <div class="cuon-ngang">
 <table class="bang<?= $duocSapXep ? ' bang-sapxep' : '' ?>" id="bang-bc"<?= $duocSapXep ? ' data-sapxep="1"' : '' ?>>
   <thead>
@@ -206,6 +282,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   </tbody>
 </table>
 </div>
+<?php endif; /* xem12 */ ?>
 
 <?php if (!$bang): ?>
   <div class="tb tb-canh-bao">
