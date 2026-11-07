@@ -582,7 +582,7 @@ if (la_post()) {
         if (post('ajax') === '1') {
             header('Content-Type: application/json; charset=utf-8');
             if ($loiSua !== null) {
-                echo json_encode(['ok' => false, 'loi' => $loiSua], JSON_UNESCAPED_UNICODE);
+                echo json_encode(['ok' => false, 'loi' => $loiSua], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
                 exit;
             }
             $ct2 = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
@@ -603,7 +603,7 @@ if (la_post()) {
                 'ok'  => true, 'id' => $id,
                 'msg' => 'Đã lưu "' . $tenS . '".',
                 'row' => dong_giao($ct2, $r2, $nam, $idKhoa, $duocSuaCT, $duocThemCT, false),
-            ], JSON_UNESCAPED_UNICODE);
+            ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
             exit;
         }
         if ($loiSua !== null) { nhan_tin('loi', $loiSua); }
