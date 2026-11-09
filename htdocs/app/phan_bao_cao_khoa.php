@@ -36,8 +36,18 @@
       $mau = $dat ? '#0f766e' : '#d97706'; ?>
     <div class="the-vong">
       <div class="tv-trai">
+        <?php $ptVal = (float)$r['pt'];
+              // % lớn thì bỏ số lẻ cho chữ ngắn lại (số lẻ ở mức trăm/nghìn % vô nghĩa):
+              //   <100% giữ 1 lẻ (83,3%) · >=100% bỏ lẻ (635% / 1.593%).
+              $ptTxt = $ptVal >= 100
+                     ? number_format($ptVal, 0, ',', '.') . '%'
+                     : phan_tram($ptVal);
+              // Phòng hờ: % cực lớn (>=1000%) vẫn còn dài thì co nhẹ để khỏi bị vòng che.
+              $lenPt = strlen($ptTxt);   // chuỗi % chỉ gồm ASCII (số . , %)
+              $ptCls = $lenPt >= 8 ? ' tv-pt-dai'
+                     : ($lenPt >= 6 ? ' tv-pt-vua' : ''); ?>
         <div class="tv-vong"><?= svg_donut((float)$r['pt'], $mau) ?>
-          <span class="tv-pt"><?= phan_tram($r['pt']) ?></span></div>
+          <span class="tv-pt<?= $ptCls ?>"><?= $ptTxt ?></span></div>
       </div>
       <div class="tv-phai">
         <div class="tv-ten"><?= e($ct['ten']) ?></div>
