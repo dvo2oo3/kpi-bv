@@ -29,6 +29,7 @@ const QUYEN_THEO_VAI_TRO = [
         // Danh mục — admin tự quản lý được nội dung
         'khoa.xem', 'khoa.them', 'khoa.sua', 'khoa.ngung',
         'chitieu.xem', 'chitieu.them', 'chitieu.sua', 'chitieu.ngung',
+        'chitieu.gop',   // gộp đối tượng trùng (gộp MỀM, đảo lại được — không xóa)
         // Nghiệp vụ — admin nhập thay được cho khoa nộp muộn
         'chitieu.giao', 'solieu.nhap', 'solieu.xem_tat_ca', 'solieu.nhap_excel',
         'ky.duyet', 'ky.khoa', 'ky.dat_lich', 'dieuchinh.duyet',
@@ -177,6 +178,7 @@ const QUYEN_CO_THE_UY = [
     'chitieu.giao'      => 'Giao chỉ tiêu',
     'chitieu.them'      => 'Thêm chỉ tiêu',
     'chitieu.sua'       => 'Sửa chỉ tiêu',
+    'chitieu.gop'       => 'Gộp đối tượng trùng (gộp mềm)',
     'baocao.toan_vien'  => 'Xem báo cáo toàn viện',
     'baocao.xuat'       => 'Xuất báo cáo Excel',
     'nhatky.xem'        => 'Xem nhật ký hệ thống',

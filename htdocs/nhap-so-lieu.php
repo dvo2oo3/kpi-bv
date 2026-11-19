@@ -552,7 +552,7 @@ $goiYMo = ($thangDangMo !== null && !($nam === $macDinhNam && $thang === $thangD
             <?= $r && (int)$r['la_chien_dich'] === 1
                 ? '<span class="the the-nho">đợt</span>' : '' ?>
           <?php else: ?>
-            <input type="checkbox" name="chien_dich[<?= $id ?>]" value="1"
+            <input type="checkbox" class="o-chien-dich" name="chien_dich[<?= $id ?>]" value="1"
                    <?= $r && (int)$r['la_chien_dich'] === 1 ? 'checked' : '' ?>>
           <?php endif; ?>
         </td>

@@ -10,24 +10,36 @@
 require_once __DIR__ . '/app/layout.php';
 require_once __DIR__ . '/app/danh_muc.php';
 
-$toi = bat_buoc_quyen('chitieu.xoa');   // gộp có xóa chỉ tiêu → chỉ DEV
+// Mở cho admin (quyền chitieu.gop). Admin gộp MỀM (đảo lại được); DEV mới gộp
+// CỨNG (xóa mã) — phân biệt bằng quyền chitieu.xoa.
+$toi   = bat_buoc_quyen('chitieu.gop');
+$laDev = co_quyen('chitieu.xoa');
 
 if (la_post()) {
     kiem_tra_csrf();
-    if (post('viec') === 'gop') {
-        $laAjax = post('ajax') === '1';
-        // Gộp xong trả JSON (không tải lại trang) khi gọi bằng AJAX; nếu không thì
-        // báo flash + chuyển hướng như thường (dự phòng khi tắt JS).
-        $traLoi = function (bool $ok, string $tin) use ($laAjax) {
-            if ($laAjax) {
-                header('Content-Type: application/json; charset=utf-8');
-                echo json_encode(['ok' => $ok, ($ok ? 'msg' : 'loi') => $tin], JSON_UNESCAPED_UNICODE);
-                exit;
-            }
-            nhan_tin($ok ? 'ok' : 'loi', $tin);
-            chuyen_huong('/gop-trung-lap.php');
-        };
+    $laAjax = post('ajax') === '1';
+    // Trả JSON (không tải lại trang) khi gọi bằng AJAX; nếu không thì báo flash
+    // + chuyển hướng như thường (dự phòng khi tắt JS).
+    $traLoi = function (bool $ok, string $tin) use ($laAjax) {
+        if ($laAjax) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => $ok, ($ok ? 'msg' : 'loi') => $tin],
+                JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+            exit;
+        }
+        nhan_tin($ok ? 'ok' : 'loi', $tin);
+        chuyen_huong('/gop-trung-lap.php');
+    };
 
+    // Bỏ gộp mềm: tách một chỉ tiêu ra đứng riêng lại.
+    if (post('viec') === 'bo_gop') {
+        $kq = bo_gop_mem_chi_tieu((int)post('id'));
+        if (!empty($kq['loi'])) { $traLoi(false, $kq['loi']); }
+        ghi_nhat_ky('BO_GOP_MEM', $kq['ct']['ma'], $kq['ct']['ten']);
+        $traLoi(true, "Đã tách \"{$kq['ct']['ten']}\" ra đứng riêng.");
+    }
+
+    if (post('viec') === 'gop') {
         $giuId  = (int)post('giu');
         $thanhVien = array_map('intval', $_POST['thanh_vien'] ?? []);
 
@@ -45,6 +57,24 @@ if (la_post()) {
             }
         }
 
+        $boIds = array_values(array_filter($thanhVien, fn($x) => $x !== $giuId));
+
+        // ----- GỘP MỀM (admin — không có quyền xóa): đảo lại được, không đổi mã -----
+        if (!$laDev) {
+            $kq = gop_mem_chi_tieu($giuId, $boIds);
+            if (!empty($kq['loi'])) { $traLoi(false, $kq['loi']); }
+            $tenMoi = trim((string)post('ten_moi'));
+            if ($tenMoi !== '' && $tenMoi !== $giu['ten']) {
+                q('UPDATE chi_tieu SET ten = ? WHERE id = ?', [$tenMoi, $giuId]);
+            }
+            $tenCuoi = $tenMoi !== '' ? $tenMoi : $giu['ten'];
+            ghi_nhat_ky('GOP_MEM_CHI_TIEU', $giu['ma'],
+                'Gộp mềm ' . $kq['gop'] . ' mã vào "' . $tenCuoi . '"');
+            $traLoi(true, "Đã gộp (mềm) {$kq['gop']} chỉ tiêu vào \"{$tenCuoi}\". "
+                . "Số liệu gom về mã này trên báo cáo; bỏ gộp để tách lại bất cứ lúc nào.");
+        }
+
+        // ----- GỘP CỨNG (DEV): dồn số liệu thật + xóa mã -----
         // Mã đích (tùy chọn): gộp xong đổi luôn mã giữ về mã cho gọn/đúng quy ước.
         $maMoi = preg_replace('/[^A-Z0-9_]/', '', strtoupper(trim((string)post('ma_moi'))));
         $doiMa = $maMoi !== '' && $maMoi !== $giu['ma'];
@@ -60,7 +90,6 @@ if (la_post()) {
             }
         }
 
-        $boIds = array_values(array_filter($thanhVien, fn($x) => $x !== $giuId));
         $kq = gop_chi_tieu($giuId, $boIds);
         if (!empty($kq['loi'])) {
             $traLoi(false, $kq['loi']);
@@ -116,6 +145,7 @@ function _uu_tien_giu(array $a, array $b): int
 /** Xuất một thẻ nhóm trùng (form gộp). $loai = 'chac' | 'nghi'. */
 function xuat_nhom_trung(array $g, int $stt): void
 {
+    global $laDev;
     $nghiNgo = $g['loai'] === 'nghi';
     $ms = $g['members'];
     usort($ms, '_uu_tien_giu');
@@ -124,7 +154,9 @@ function xuat_nhom_trung(array $g, int $stt): void
         . ($nghiNgo
             ? '⚠ Các mã này nằm ở NỘI DUNG LỚN KHÁC NHAU — chỉ gộp nếu chắc chắn là cùng một chỉ tiêu.&#10;'
             : '')
-        . 'Số liệu sẽ dồn về một mã, không tự hoàn tác được.';
+        . ($laDev
+            ? 'Số liệu sẽ dồn về một mã, KHÔNG tự hoàn tác được.'
+            : 'Số liệu gom về một mã trên báo cáo — có thể BỎ GỘP để tách lại.');
     ?>
     <form method="post" class="the-trung <?= $nghiNgo ? 'the-nghi' : '' ?>" data-hoi="<?= $xn ?>">
       <?= csrf_field() ?>
@@ -185,13 +217,16 @@ function xuat_nhom_trung(array $g, int $stt): void
           <input type="text" name="ten_moi" class="sua-ten-gop" autocomplete="off"
                  value="<?= e($ms[0]['row']['ten']) ?>">
         </label>
+        <?php if ($laDev): ?>
         <label class="o-ma-cuoi">Mã sau khi gộp
           <input type="text" name="ma_moi" class="sua-ma-gop" autocomplete="off"
                  spellcheck="false" style="text-transform:uppercase"
                  value="<?= e($ms[0]['row']['ma']) ?>">
         </label>
-        <button type="submit" class="nut <?= $nghiNgo ? 'nut-nguy' : 'nut-canh' ?>">Gộp về mã này</button>
-        <span class="phu">Chọn ô “Giữ”, sửa <em>Nội dung / Mã</em> nếu muốn, rồi bấm gộp.</span>
+        <?php endif; ?>
+        <button type="submit" class="nut <?= $nghiNgo ? 'nut-nguy' : 'nut-canh' ?>">
+          <?= $laDev ? 'Gộp về mã này' : 'Gộp (mềm) về mã này' ?></button>
+        <span class="phu">Chọn ô “Giữ”, sửa <em>Nội dung</em><?= $laDev ? ' / <em>Mã</em>' : '' ?> nếu muốn, rồi bấm gộp.</span>
       </div>
     </form>
     <?php
@@ -203,11 +238,18 @@ mo_trang('Kiểm tra trùng lặp');
 <h1>Kiểm tra & gộp chỉ tiêu trùng lặp</h1>
 
 <div class="tb tb-tin">
-  Những chỉ tiêu <strong>cùng nội dung nhưng bị tách thành nhiều mã</strong> sẽ làm dashboard
-  và báo cáo cộng thiếu (mỗi mã một tổng riêng). Chọn <strong>một mã để giữ</strong> rồi gộp —
-  toàn bộ số liệu, kế hoạch, khoa áp dụng của các mã còn lại sẽ dồn về mã giữ, trùng năm-tháng-khoa
-  thì <strong>cộng dồn</strong>. Số liệu không mất; thao tác không tự hoàn tác nên nên
-  <a href="/sao-luu.php?tai=sql">tải bản sao lưu</a> trước cho chắc.
+  Những chỉ tiêu <strong>cùng nội dung nhưng bị tách thành nhiều mã</strong> làm dashboard
+  và báo cáo cộng rời (mỗi mã một tổng riêng). Chọn <strong>một mã để giữ</strong> rồi gộp để
+  <strong>đưa về một</strong>.
+  <?php if ($laDev): ?>
+    Toàn bộ số liệu, kế hoạch, khoa áp dụng của các mã còn lại sẽ dồn về mã giữ (trùng năm-tháng-khoa
+    thì <strong>cộng dồn</strong>). Thao tác <strong>không tự hoàn tác</strong> —
+    <a href="/sao-luu.php?tai=sql">tải bản sao lưu</a> trước cho chắc.
+  <?php else: ?>
+    Bạn dùng <strong>gộp mềm</strong>: các mã còn lại được gom về mã giữ
+    <strong>trên báo cáo/dashboard</strong>, <strong>không xóa gì cả</strong> và
+    <strong>bỏ gộp để tách lại</strong> bất cứ lúc nào (xem mục “Đang gộp” cuối trang).
+  <?php endif; ?>
 </div>
 
 <div class="tb tb-ok" id="trong-sach" style="margin-top:1rem<?= $nhom ? ';display:none' : '' ?>">
@@ -234,6 +276,40 @@ mo_trang('Kiểm tra trùng lặp');
     và <strong>KHÔNG nên gộp</strong>. Chỉ gộp nhóm nào anh chắc chắn là cùng một chỉ tiêu bị đặt nhầm chỗ.
   </div>
   <?php foreach ($nghi as $i => $g) { xuat_nhom_trung($g, $i + 1); } ?>
+</section>
+<?php endif; ?>
+
+<?php $dangGop = ds_dang_gop_mem(); if ($dangGop): ?>
+<section class="khu-trung" data-loai="dang-gop" style="margin-top:1.25rem">
+  <h2 class="tieu-de-khu">Đang gộp
+    <span class="the the-nho the-chuan"><?= count($dangGop) ?></span></h2>
+  <p class="phu">Các chỉ tiêu đã <strong>gộp mềm</strong> — số liệu đang gom về mã giữ trên báo cáo/dashboard.
+     Bấm <em>Bỏ gộp</em> để tách lại thành chỉ tiêu đứng riêng (không mất số liệu).</p>
+  <div class="cuon-ngang">
+  <table class="bang bang-mot-dong">
+    <thead><tr><th>Chỉ tiêu (đang gộp)</th><th>Mã</th><th>Gom vào</th><th></th></tr></thead>
+    <tbody>
+    <?php foreach ($dangGop as $d): ?>
+      <tr>
+        <td><?= e($d['ten']) ?></td>
+        <td><code><?= e($d['ma']) ?></code></td>
+        <td><?= $d['ten_giu'] !== null
+                ? e($d['ten_giu']) . ' <span class="phu">(' . e($d['gop_vao']) . ')</span>'
+                : '<span class="phu">' . e($d['gop_vao']) . ' — không tìm thấy mã giữ</span>' ?></td>
+        <td style="text-align:right">
+          <form method="post" class="f-bo-gop" style="display:inline"
+                data-hoi="Tách &quot;<?= e($d['ten']) ?>&quot; ra đứng riêng lại?">
+            <?= csrf_field() ?>
+            <input type="hidden" name="viec" value="bo_gop">
+            <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+            <button type="submit" class="nut nut-nho nut-phu">Bỏ gộp</button>
+          </form>
+        </td>
+      </tr>
+    <?php endforeach; ?>
+    </tbody>
+  </table>
+  </div>
 </section>
 <?php endif; ?>
 

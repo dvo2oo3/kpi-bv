@@ -145,6 +145,29 @@ CREATE TABLE IF NOT EXISTS ke_hoach_thang (
   PRIMARY KEY (nam, thang, id_khoa, id_chi_tieu)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Số TOÀN VIỆN nhập tay: đè phép cộng khoa cho các chỉ tiêu bị đếm trùng
+-- (vd tổng số lượt khám — 1 người đi nhiều khoa bị cộng nhiều lần).
+-- Có bản ghi = "nhập tay"; không có = tự cộng khoa như thường.
+CREATE TABLE IF NOT EXISTS so_toan_vien (
+  nam           INT NOT NULL,
+  id_chi_tieu   INT NOT NULL,
+  chi_tieu_giao DECIMAL(14,2) NULL,   -- KH toàn viện nhập tay (cả năm)
+  thuc_hien     DECIMAL(14,2) NULL,   -- TH toàn viện nhập tay (đến nay / cả năm)
+  ghi_chu       VARCHAR(255) NULL,
+  PRIMARY KEY (nam, id_chi_tieu),
+  CONSTRAINT fk_stv_ct FOREIGN KEY (id_chi_tieu) REFERENCES chi_tieu(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Số TOÀN VIỆN nhập tay theo TỪNG THÁNG (đè phép cộng khoa của đúng tháng đó).
+CREATE TABLE IF NOT EXISTS so_toan_vien_thang (
+  nam         INT NOT NULL,
+  thang       TINYINT NOT NULL,
+  id_chi_tieu INT NOT NULL,
+  gia_tri     DECIMAL(14,2) NULL,
+  PRIMARY KEY (nam, thang, id_chi_tieu),
+  CONSTRAINT fk_stvt_ct FOREIGN KEY (id_chi_tieu) REFERENCES chi_tieu(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- -------------------------------------------------------------
 -- 5. Kỳ nhập liệu (mỗi khoa mỗi tháng một bản ghi)
 -- -------------------------------------------------------------

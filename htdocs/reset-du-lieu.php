@@ -76,7 +76,7 @@ mo_trang('Reset dữ liệu');
   <?php endif; ?>
 </div>
 
-<form method="post" class="form-tai-khoan" style="max-width:640px"
+<form method="post" class="form-tai-khoan"
       data-xac-nhan="XÓA vĩnh viễn dữ liệu đã chọn? Không hoàn tác được." data-xac-nhan-loai="nguy">
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="reset">

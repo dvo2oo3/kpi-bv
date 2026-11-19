@@ -30,7 +30,7 @@ function svg_esc(?string $s): string
  *
  * @param array $giaTri [thang => giá trị|null]
  */
-function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0): string
+function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0, bool $nhanSo = false): string
 {
     $R = 600; $C = 110; $dem = 6;
     $rongVe = $R - $dem * 2;
@@ -46,8 +46,14 @@ function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0): string
     $x = fn($t) => $dem + ($t - 1) / 11 * $rongVe;
     $y = fn($v) => 7 + $caoVe - ($v / $tran) * $caoVe;
 
+    static $sodem = 0; $gid = 'bdg' . (++$sodem);   // id gradient riêng mỗi biểu đồ
     $svg = '<svg class="bd" viewBox="0 0 ' . $R . ' ' . $C . '" role="img" '
          . 'aria-label="Xu hướng 12 tháng" preserveAspectRatio="none">';
+    // Nền gradient dưới đường: đậm ở đỉnh, mờ dần xuống đáy
+    $svg .= '<defs><linearGradient id="' . $gid . '" x1="0" y1="0" x2="0" y2="1">'
+          . '<stop offset="0" stop-color="' . MAU_NET . '" stop-opacity="0.30"/>'
+          . '<stop offset="1" stop-color="' . MAU_NET . '" stop-opacity="0"/>'
+          . '</linearGradient></defs>';
 
     // Hai đường lưới mảnh, lùi hẳn về sau
     foreach ([0, 0.5] as $p) {
@@ -72,13 +78,15 @@ function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0): string
         $duong = implode(' ', array_map(fn($p) => round($p[0], 1) . ',' . round($p[1], 1), $d));
         $svg .= '<polygon points="' . round($d[0][0], 1) . ',' . ($C - 1) . ' '
               . $duong . ' ' . round(end($d)[0], 1) . ',' . ($C - 1)
-              . '" fill="' . MAU_NEN . '"/>';
+              . '" fill="url(#' . $gid . ')"/>';
         $svg .= '<polyline points="' . $duong . '" fill="none" stroke="' . MAU_NET
               . '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"'
               . ' vector-effect="non-scaling-stroke"/>';
     }
 
     // Điểm + vùng bắt chuột. Chú giải bằng <title> nên không bị co theo khung.
+    // $nhan_lop: lớp nhãn số bằng HTML, định vị theo % nên không méo dù SVG co giãn.
+    $nhan_lop = '';
     for ($t = 1; $t <= 12; $t++) {
         $v = $giaTri[$t] ?? null;
         if ($v === null) { continue; }
@@ -90,8 +98,29 @@ function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0): string
               . '" r="3" fill="' . MAU_NET . '" stroke="#fff" stroke-width="2"'
               . ' vector-effect="non-scaling-stroke"><title>' . svg_esc($nhan)
               . '</title></circle>';
+        if ($nhanSo) {
+            $trai = round($x($t) / $R * 100, 2);
+            $dinh = round($y($v) / $C * 100, 2);
+            $nhan_lop .= '<span class="bd-nhan" style="left:' . $trai . '%;top:' . $dinh . '%">'
+                       . svg_esc(so($v, $le)) . '</span>';
+        }
     }
-    return $svg . '</svg>';
+
+    // Chấm tháng MỚI NHẤT nổi bật hơn (to + quầng sáng)
+    $lastT = null;
+    for ($t = 12; $t >= 1; $t--) { if (($giaTri[$t] ?? null) !== null) { $lastT = $t; break; } }
+    if ($lastT !== null) {
+        $cx = round($x($lastT), 1); $cy = round($y($giaTri[$lastT]), 1);
+        $svg .= '<circle cx="' . $cx . '" cy="' . $cy . '" r="6" fill="' . MAU_NET
+              . '" opacity="0.18" vector-effect="non-scaling-stroke"/>';
+        $svg .= '<circle cx="' . $cx . '" cy="' . $cy . '" r="3.6" fill="' . MAU_NET
+              . '" stroke="#fff" stroke-width="2.4" vector-effect="non-scaling-stroke"/>';
+    }
+    $svg .= '</svg>';
+    if ($nhanSo && $nhan_lop !== '') {
+        return '<div class="bd-boc">' . $svg . '<div class="bd-nhan-lop">' . $nhan_lop . '</div></div>';
+    }
+    return $svg;
 }
 
 /** Hàng nhãn tháng bằng HTML, đặt ngay dưới biểu đồ đường. */

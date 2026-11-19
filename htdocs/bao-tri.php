@@ -55,7 +55,7 @@ mo_trang('Bảo trì hệ thống');
   Trạng thái hiện tại: <strong><?= e($nhanTrangThai[$muc]) ?></strong>
 </div>
 
-<section class="the-hop" style="max-width:680px">
+<section class="the-hop">
   <form method="post">
     <?= csrf_field() ?>
 

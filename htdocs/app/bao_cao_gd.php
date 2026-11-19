@@ -33,7 +33,7 @@ function bao_cao_gd_mac_dinh(): array
         'ky'        => '6thang',
         'khoa'      => 'all',                 // 'all' hoặc mảng id khoa
         'toan_vien' => 1,
-        'cot'       => ['nam_truoc' => 1, 'chi_tieu' => 1, 'ket_qua' => 1, 'pt' => 1],
+        'cot'       => ['nam_truoc' => 1, 'chi_tieu_truoc' => 1, 'chi_tieu' => 1, 'ket_qua' => 1, 'pt' => 1],
         'bo_ma'     => [],                    // (cũ) mã ẩn toàn cục — không dùng cho custom mới
         'ct_khoa'   => [],                    // custom THEO KHOA: [id_khoa => [ma=>1,...]] các trường HIỆN
         'so_qd'     => '',                    // số quyết định in dưới tiêu đề
@@ -81,18 +81,24 @@ function bao_cao_gd_cau_hinh(): array
 /** Danh sách MẪU xuất đã lưu: mỗi mẫu ['id','ten','cfg'=>[...]]. */
 function bao_cao_gd_ds(): array
 {
+    // Mẫu CỐ ĐỊNH luôn có: giống bản nộp Sở (khoa QĐ33b + toàn viện QĐ74, đủ chỉ tiêu).
+    $giongSo = ['id' => 'giong_so', 'ten' => '📋 Giống bản Sở (QĐ33b khoa + QĐ74 toàn viện)',
+        'cfg' => bao_cao_gd_chuan(['mau' => 'chi_tiet', 'chi_tiet_thang' => 0, 'theo_so' => 1,
+                                   'ky' => 'nam', 'toan_vien' => 1,
+                                   'so_qd' => 'Quyết định số 33b/QĐ-TTYT ngày 13/01/2026 của Trung tâm Y tế Nam Sách'])];
     $v = cai_dat_lay('baocao_gd_ds');
     $ds = $v ? json_decode($v, true) : null;
     if (is_array($ds) && $ds) {
-        return array_map(fn($m) => [
+        $saved = array_values(array_filter(array_map(fn($m) => [
             'id'  => (string)($m['id'] ?? uniqid('m')),
             'ten' => (string)($m['ten'] ?? 'Mẫu'),
             'cfg' => bao_cao_gd_chuan(is_array($m['cfg'] ?? null) ? $m['cfg'] : []),
-        ], $ds);
+        ], $ds), fn($m) => $m['id'] !== 'giong_so'));   // không nhân đôi mẫu cố định
+        return array_merge([$giongSo], $saved);
     }
-    // Lần đầu: dựng 2 mẫu sẵn. Mẫu Giám đốc = chi tiết từng tháng (giống file
-    // "Theo dõi chỉ tiêu các khoa đạt được"); thêm 1 mẫu tổng gọn.
+    // Lần đầu: mẫu Giống Sở + Giám đốc (chi tiết tháng) + Tổng gọn.
     return [
+        $giongSo,
         ['id' => 'giam_doc', 'ten' => 'Báo cáo Giám đốc (chi tiết từng tháng)',
          'cfg' => bao_cao_gd_chuan(['chi_tiet_thang' => 1, 'mau' => 'chinh', 'ky' => 'nam', 'toan_vien' => 1])],
         ['id' => 'tong_gon', 'ten' => 'Báo cáo tổng (gọn, 1 dòng mỗi chỉ tiêu)',
@@ -134,6 +140,7 @@ function bao_cao_gd_ten_ky(string $ky): string
 
 function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
 {
+    if (!empty($cfg['theo_so']))       { xuat_bao_cao_theo_so($nam, $cfg); return; }
     if (!empty($cfg['chi_tiet_thang'])) { xuat_bao_cao_gd_thang($nam, $cfg); return; }
     $cacThang = bao_cao_gd_thang($cfg['ky']);
     $cot   = $cfg['cot'];
@@ -159,10 +166,11 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
 
     // Các cột bật
     $colTH = !empty($cot['nam_truoc']);
+    $colCT = !empty($cot['chi_tieu_truoc']);   // chỉ tiêu giao NĂM TRƯỚC
     $colKH = !empty($cot['chi_tieu']);
     $colKQ = !empty($cot['ket_qua']);
     $colPT = !empty($cot['pt']);
-    $soCot = 3 + ($colTH?1:0) + ($colKH?1:0) + ($colKQ?1:0) + ($colPT?1:0);
+    $soCot = 3 + ($colTH?1:0) + ($colCT?1:0) + ($colKH?1:0) + ($colKQ?1:0) + ($colPT?1:0);
 
     $tenFile = 'bao-cao-giam-doc-' . $cfg['ky'] . "-{$nam}.xls";
     header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
@@ -195,6 +203,69 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
 <?php
     $mau = $cfg['mau'] ?? 'chi_tiet';
     foreach ($sheets as $sh):
+        // ----- Sheet TOÀN VIỆN theo khuôn QĐ74 (16 tiêu chí chính, đơn vị chuẩn của Sở) -----
+        if ($sh['id'] === null):
+            $tv = [];
+            foreach ($sh['bang'] as $dd) { $tv[$dd['ct']['ma']] = $dd; }
+            $qd74 = [
+                ['GB',     'Giường bệnh nội trú kế hoạch',                              'Giường', 0],
+                ['NDT',    'Tổng số ngày điều trị của bệnh nhân nội trú',               'Ngày',   0],
+                ['NT',     'Tổng số bệnh nhân điều trị nội trú',                        'Người',  0],
+                ['CSGB',   'Công suất giường bệnh',                                     '%',      0],
+                ['NDT_TB', 'Số ngày điều trị nội trú trung bình của bệnh nhân nội trú', 'Ngày',   0],
+                ['KB',     'Tổng số lượt khám bệnh',                                    'Lượt',   0],
+                ['XN',     'Tổng số các xét nghiệm',                                    '',       0],
+                ['TONG_SO_XN_HUYET_HOC', 'Huyết học',                                   'Lần',    1],
+                ['TONG_SO_XN_HOA_SINH',  'Hóa sinh',                                    'Lần',    1],
+                ['TONG_SO_XN_VSV_KST',   'Vi sinh vật',                                 'Lần',    1],
+                ['XQ',     'Tổng số chụp X Quang',                                      'Lần',    0],
+                ['CT',     'Tổng số chụp CT-Scanner',                                   'Lần',    0],
+                ['MRI',    'Tổng số chụp MRI',                                          'Lần',    0],
+                ['SA',     'Tổng số siêu âm chẩn đoán và điều trị',                     'Lần',    0],
+                ['NS',     'Tổng số nội soi chẩn đoán và can thiệp',                    'Lần',    0],
+                ['PT',     'Tổng số phẫu thuật',                                        'Ca',     0],
+                ['TT',     'Tổng số thủ thuật',                                         'Ca',     0],
+                ['NCKH',   'Tổng số đề tài nghiên cứu',                                 'Đề tài', 0],
+            ];
+?>
+<Worksheet ss:Name="TOAN VIEN">
+<Table>
+  <Column ss:Width="34"/><Column ss:Width="330"/><Column ss:Width="64"/>
+  <Column ss:Width="94"/><Column ss:Width="82"/><Column ss:Width="72"/>
+  <Row ss:Height="32"><Cell ss:StyleID="td" ss:MergeAcross="5">
+    <Data ss:Type="String">CHỈ TIÊU KẾ HOẠCH CHUYÊN MÔN — TRUNG TÂM Y TẾ NAM SÁCH NĂM <?= $nam ?></Data></Cell></Row>
+  <?php if (trim((string)($cfg['so_qd'] ?? '')) !== ''): ?>
+  <Row><Cell ss:StyleID="qd" ss:MergeAcross="5"><Data ss:Type="String">(Kèm theo <?= $x($cfg['so_qd']) ?>)</Data></Cell></Row>
+  <?php endif; ?>
+  <Row><Cell ss:StyleID="qd" ss:MergeAcross="5"><Data ss:Type="String">Kết quả đạt được <?= $x($tenKy) ?> năm <?= $nam ?></Data></Cell></Row>
+  <Row/>
+  <Row ss:Height="30">
+    <Cell ss:StyleID="dau"><Data ss:Type="String">STT</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">CÁC TIÊU CHÍ HOẠT ĐỘNG</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐƠN VỊ TÍNH</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">CHỈ TIÊU GIAO KẾ HOẠCH</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐẠT</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">SO KẾ HOẠCH</Data></Cell>
+  </Row>
+  <?php $stt74 = 0; foreach ($qd74 as [$ma74, $ten74, $dv74, $cap74]):
+      $dRow = $ma74 !== null ? ($tv[$ma74] ?? null) : null;
+      $le74 = $dRow && in_array($dRow['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
+      $k74  = $le74 ? 'so1' : 'so';
+      if (!$cap74) { $stt74++; } ?>
+    <Row>
+      <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $cap74 ? '' : $stt74 ?></Data></Cell>
+      <Cell ss:StyleID="<?= $cap74 ? 'con' : 'cha' ?>"><Data ss:Type="String"><?= $x($ten74) ?></Data></Cell>
+      <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($dv74) ?></Data></Cell>
+      <?php if ($dRow && $dRow['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= round($dRow['chi_tieu_nam'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
+      <?php if ($dRow && $dRow['thuc_hien'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= round($dRow['thuc_hien'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
+      <?php if ($dRow && $dRow['pt_nam'] !== null): ?><Cell ss:StyleID="pt"><Data ss:Type="Number"><?= round($dRow['pt_nam'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="pt"/><?php endif; ?>
+    </Row>
+  <?php endforeach; ?>
+</Table>
+</Worksheet>
+<?php
+            continue;
+        endif;
         // Lọc theo mẫu: cha = chỉ nội dung lớn; chi_tiet = tất cả; custom = theo tick
         $tapHien = bcgd_tap_hien($mau, $cfg, $sh['id']);
         $rows = array_values(array_filter($sh['bang'], function ($d) use ($mau, $tapHien) {
@@ -208,6 +279,7 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
 <Table>
   <Column ss:Width="30"/><Column ss:Width="300"/><Column ss:Width="46"/>
   <?php if ($colTH): ?><Column ss:Width="70"/><?php endif; ?>
+  <?php if ($colCT): ?><Column ss:Width="80"/><?php endif; ?>
   <?php if ($colKH): ?><Column ss:Width="80"/><?php endif; ?>
   <?php if ($colKQ): ?><Column ss:Width="80"/><?php endif; ?>
   <?php if ($colPT): ?><Column ss:Width="62"/><?php endif; ?>
@@ -225,6 +297,7 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
     <Cell ss:StyleID="dau"><Data ss:Type="String">Nội dung</Data></Cell>
     <Cell ss:StyleID="dau"><Data ss:Type="String">ĐVT</Data></Cell>
     <?php if ($colTH): ?><Cell ss:StyleID="dau"><Data ss:Type="String">TH năm <?= $namTr ?></Data></Cell><?php endif; ?>
+    <?php if ($colCT): ?><Cell ss:StyleID="dau"><Data ss:Type="String">Chỉ tiêu <?= $namTr ?></Data></Cell><?php endif; ?>
     <?php if ($colKH): ?><Cell ss:StyleID="dau"><Data ss:Type="String">Chỉ tiêu giao <?= $nam ?></Data></Cell><?php endif; ?>
     <?php if ($colKQ): ?><Cell ss:StyleID="dau"><Data ss:Type="String">Kết quả đạt được</Data></Cell><?php endif; ?>
     <?php if ($colPT): ?><Cell ss:StyleID="dau"><Data ss:Type="String">So KH (%)</Data></Cell><?php endif; ?>
@@ -243,6 +316,10 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
     <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($d['ct']['don_vi']) ?></Data></Cell>
     <?php if ($colTH): ?>
       <?php if ($d['nam_truoc'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['nam_truoc'], 2) ?></Data></Cell>
+      <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
+    <?php endif; ?>
+    <?php if ($colCT): ?>
+      <?php if (($d['chi_tieu_nam_truoc'] ?? null) !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['chi_tieu_nam_truoc'], 2) ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
     <?php endif; ?>
     <?php if ($colKH): ?>
@@ -265,6 +342,190 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
 </Workbook>
 <?php
     ghi_nhat_ky('XUAT_BAO_CAO_GD', $cfg['ky'], "$nam · " . count($sheets) . ' sheet');
+}
+
+/**
+ * MẪU GIỐNG BẢN SỞ ("theo_so"): mỗi sheet khoa dựng y khuôn QĐ33b của Sở
+ * (lấy template cố định trong khuon_so_khoa.php), + sheet Toàn viện khuôn QĐ74.
+ * Số nào app có (theo mã) thì điền; dòng khoa chưa có (vd khối XN/CĐHA của
+ * khoa lâm sàng) để trống cho người vận hành nhập tay.
+ * Cột: TT · Nội dung · ĐVT · [Năm {t}: Chỉ tiêu | Thực hiện] · Chỉ tiêu giao {n} · Kết quả · So KH(%).
+ */
+function xuat_bao_cao_theo_so(int $nam, array $cfg): void
+{
+    require_once __DIR__ . '/khuon_so_khoa.php';
+    $cacThang = bao_cao_gd_thang($cfg['ky']);
+    $namTr    = $nam - 1;
+    $soQd     = trim((string)($cfg['so_qd'] ?? ''));
+
+    $khoaMa = [];
+    foreach (qAll('SELECT * FROM khoa WHERE hoat_dong = 1') as $k) { $khoaMa[$k['ma']] = $k; }
+
+    $tenFile = 'bao-cao-giam-doc-' . $nam . '.xls';
+    header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+    header('Content-Disposition: attachment; filename="' . $tenFile . '"');
+    header('Cache-Control: max-age=0');
+    $x = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES | ENT_XML1, 'UTF-8');
+    $vien = '<Borders>'
+        . '<Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+        . '<Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+        . '<Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+        . '<Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/></Borders>';
+    // Ô số: trả Cell có số, hoặc Cell rỗng (để nhập tay).
+    $oSo = function ($v, string $kSo) {
+        if ($v === null || $v === '') { return '<Cell ss:StyleID="' . $kSo . '"/>'; }
+        return '<Cell ss:StyleID="' . $kSo . '"><Data ss:Type="Number">' . round((float)$v, 2) . '</Data></Cell>';
+    };
+
+    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
+    echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"'
+        . ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">' . "\n";
+    ?>
+<Styles>
+  <Style ss:ID="td"><Font ss:Bold="1" ss:Size="12"/><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/></Style>
+  <Style ss:ID="qd"><Font ss:Italic="1" ss:Size="10"/><Alignment ss:Horizontal="Center" ss:WrapText="1"/></Style>
+  <Style ss:ID="trai"><Font ss:Bold="1" ss:Size="10"/><Alignment ss:Horizontal="Left" ss:WrapText="1"/></Style>
+  <Style ss:ID="trai2"><Font ss:Size="10"/><Alignment ss:Horizontal="Left" ss:WrapText="1"/></Style>
+  <Style ss:ID="dau"><Font ss:Bold="1" ss:Size="10"/><Interior ss:Color="#DBEAFE" ss:Pattern="Solid"/>
+    <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><?= $vien ?></Style>
+  <Style ss:ID="tt"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><?= $vien ?></Style>
+  <Style ss:ID="ten"><Alignment ss:Vertical="Center" ss:WrapText="1"/><?= $vien ?></Style>
+  <Style ss:ID="con"><Alignment ss:Indent="2" ss:Vertical="Center" ss:WrapText="1"/><Font ss:Italic="1" ss:Color="#334155"/><?= $vien ?></Style>
+  <Style ss:ID="dv"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><?= $vien ?></Style>
+  <Style ss:ID="so"><NumberFormat ss:Format="#,##0"/><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><?= $vien ?></Style>
+  <Style ss:ID="so1"><NumberFormat ss:Format="#,##0.0"/><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><?= $vien ?></Style>
+  <Style ss:ID="pt"><NumberFormat ss:Format="0.0&quot;%&quot;"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><?= $vien ?></Style>
+</Styles>
+<?php
+    // ===================== SHEET TỪNG KHOA (QĐ33b) =====================
+    $soSheet = 0;
+    foreach (KHUON_SO_META as $ma => $meta):
+        [$tab, $tieuDe] = $meta;
+        $k    = $khoaMa[$ma] ?? null;
+        $rows = KHUON_SO_KHOA[$ma] ?? [];
+        $idx  = [];
+        if ($k) {
+            foreach (bang_theo_khoa($nam, $cacThang, (int)$k['id'], 'giao') as $d) {
+                $idx[$d['ct']['ma']] = $d;
+            }
+        }
+        $soSheet++;
+?>
+<Worksheet ss:Name="<?= $x($tab) ?>">
+<Table>
+  <Column ss:Width="34"/><Column ss:Width="320"/><Column ss:Width="60"/>
+  <Column ss:Width="78"/><Column ss:Width="78"/><Column ss:Width="92"/><Column ss:Width="86"/><Column ss:Width="64"/>
+  <Row ss:Height="40"><Cell ss:StyleID="td" ss:MergeAcross="7"><Data ss:Type="String"><?= $x($tieuDe) ?> NĂM <?= $nam ?></Data></Cell></Row>
+  <?php if ($soQd !== ''): ?>
+  <Row><Cell ss:StyleID="qd" ss:MergeAcross="7"><Data ss:Type="String">(Kèm theo <?= $x($soQd) ?>)</Data></Cell></Row>
+  <?php endif; ?>
+  <Row/>
+  <Row ss:Height="28">
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">TT</Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">Nội dung</Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">Đơn vị tính</Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeAcross="1"><Data ss:Type="String">Năm <?= $namTr ?></Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">Chỉ tiêu giao năm <?= $nam ?></Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">Kết quả đạt được</Data></Cell>
+    <Cell ss:StyleID="dau" ss:MergeDown="1"><Data ss:Type="String">So KH(%)</Data></Cell>
+  </Row>
+  <Row ss:Height="18">
+    <Cell ss:Index="4" ss:StyleID="dau"><Data ss:Type="String">Chỉ tiêu</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">Thực hiện</Data></Cell>
+  </Row>
+<?php
+        foreach ($rows as [$stt, $ten, $dvt, $cap, $maCt]):
+            $d   = ($maCt !== null) ? ($idx[$maCt] ?? null) : null;
+            $le  = $d && in_array($d['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
+            $kSo = $le ? 'so1' : 'so';
+?>
+  <Row>
+    <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $x($stt) ?></Data></Cell>
+    <Cell ss:StyleID="<?= $cap ? 'con' : 'ten' ?>"><Data ss:Type="String"><?= $x($ten) ?></Data></Cell>
+    <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($dvt) ?></Data></Cell>
+    <?= $oSo($d['chi_tieu_nam_truoc'] ?? null, $kSo) ?>
+    <?= $oSo($d['nam_truoc'] ?? null, $kSo) ?>
+    <?= $oSo($d['chi_tieu_nam'] ?? null, $kSo) ?>
+    <?= $oSo($d['thuc_hien'] ?? null, $kSo) ?>
+    <?= $oSo($d['pt_nam'] ?? null, 'pt') ?>
+  </Row>
+<?php endforeach; ?>
+</Table>
+</Worksheet>
+<?php endforeach; ?>
+<?php
+    // ===================== SHEET TOÀN VIỆN (QĐ74) =====================
+    $tv = [];
+    foreach (bang_toan_vien($nam, $cacThang, 'giao') as $d) { $tv[$d['ct']['ma']] = $d; }
+    // Khuôn 16 tiêu chí QĐ74 (đúng thứ tự bản Sở). [stt, tên, đvt, cấp, mã|null]
+    $qd74 = [
+        ['1',  'Giường bệnh nội trú kế hoạch',                              'Giường', 0, 'GB'],
+        ['2',  'Tổng số ngày điều trị của bệnh nhân nội trú',               'Ngày',   0, 'NDT'],
+        ['3',  'Tổng số bệnh nhân điều trị nội trú',                        'Người',  0, 'NT'],
+        ['4',  'Công suất giường bệnh',                                     '%',      0, 'CSGB'],
+        ['5',  'Số ngày điều trị nội trú trung bình của bệnh nhân nội trú', 'Ngày',   0, 'NDT_TB'],
+        ['6',  'Tổng số lượt khám bệnh',                                    'Lượt',   0, 'KB'],
+        ['7',  'Tổng số các xét nghiệm',                                    '',       0, 'XN'],
+        ['',   'Huyết học',                                                 'Lần',    1, 'TONG_SO_XN_HUYET_HOC'],
+        ['',   'Hóa sinh',                                                  'Lần',    1, 'TONG_SO_XN_HOA_SINH'],
+        ['',   'Vi sinh vật',                                               'Lần',    1, 'TONG_SO_XN_VSV_KST'],
+        ['8',  'Tổng số xét nghiệm về giải phẫu bệnh lý',                   'Lần',    0, null],
+        ['9',  'Tổng số chụp X Quang',                                      'Lần',    0, 'XQ'],
+        ['10', 'Tổng số chụp CT- Scanner',                                  'Lần',    0, 'CT'],
+        ['11', 'Tổng số chụp MRI',                                          'Lần',    0, 'MRI'],
+        ['12', 'Tổng số siêu âm chẩn đoán và điều trị',                     'Lần',    0, 'SA'],
+        ['13', 'Tổng số nội soi chẩn đoán và can thiệp',                    'Lần',    0, 'NS'],
+        ['14', 'Tổng số phẫu thuật',                                        'Ca',     0, 'PT'],
+        ['',   'Đặc biệt',                                                  'Ca',     1, 'PT_DB'],
+        ['',   'Loại I',                                                    'Ca',     1, 'PT_L1'],
+        ['',   'Loại II',                                                   'Ca',     1, 'PT_L2'],
+        ['',   'Loại III',                                                  'Ca',     1, 'PT_L3'],
+        ['15', 'Tổng số thủ thuật',                                        'Ca',     0, 'TT'],
+        ['16', 'Tổng số đề tài nghiên cứu',                                 'Đề tài', 0, 'NCKH'],
+    ];
+    $soSheet++;
+    // Sheet "toàn viện" theo khuôn QĐ74 của Sở — số quyết định cố định, KHÔNG dùng
+    // chung với dòng "(Kèm theo …)" ở sheet khoa (đó là QĐ33b của Trung tâm).
+    $soSoQd = '74/QĐ-SYT';
+?>
+<Worksheet ss:Name="toàn viện">
+<Table>
+  <Column ss:Width="34"/><Column ss:Width="330"/><Column ss:Width="64"/>
+  <Column ss:Width="94"/><Column ss:Width="82"/><Column ss:Width="72"/>
+  <Row><Cell ss:StyleID="trai" ss:MergeAcross="2"><Data ss:Type="String">SỞ Y TẾ THÀNH PHỐ HẢI PHÒNG</Data></Cell>
+    <Cell ss:StyleID="td" ss:MergeAcross="2"><Data ss:Type="String">CHỈ TIÊU KẾ HOẠCH CHUYÊN MÔN</Data></Cell></Row>
+  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="2"><Data ss:Type="String">Phụ lục kèm theo Quyết định</Data></Cell>
+    <Cell ss:StyleID="td" ss:MergeAcross="2"><Data ss:Type="String">TRUNG TÂM Y TẾ NAM SÁCH NĂM <?= $nam ?></Data></Cell></Row>
+  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="2"><Data ss:Type="String">Số: <?= $x($soSoQd) ?></Data></Cell></Row>
+  <Row/>
+  <Row ss:Height="30">
+    <Cell ss:StyleID="dau"><Data ss:Type="String">STT</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">CÁC TIÊU CHÍ HOẠT ĐỘNG</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐƠN VỊ TÍNH</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">CHỈ TIÊU GIAO KẾ HOẠCH</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐẠT</Data></Cell>
+    <Cell ss:StyleID="dau"><Data ss:Type="String">SO KẾ HOẠCH</Data></Cell>
+  </Row>
+<?php
+        foreach ($qd74 as [$stt, $ten, $dvt, $cap, $maCt]):
+            $d   = ($maCt !== null) ? ($tv[$maCt] ?? null) : null;
+            $le  = $d && in_array($d['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
+            $kSo = $le ? 'so1' : 'so';
+?>
+  <Row>
+    <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $x($stt) ?></Data></Cell>
+    <Cell ss:StyleID="<?= $cap ? 'con' : 'ten' ?>"><Data ss:Type="String"><?= $x($ten) ?></Data></Cell>
+    <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($dvt) ?></Data></Cell>
+    <?= $oSo($d['chi_tieu_nam'] ?? null, $kSo) ?>
+    <?= $oSo($d['thuc_hien'] ?? null, $kSo) ?>
+    <?= $oSo($d['pt_nam'] ?? null, 'pt') ?>
+  </Row>
+<?php endforeach; ?>
+</Table>
+</Worksheet>
+</Workbook>
+<?php
+    ghi_nhat_ky('XUAT_BAO_CAO_GD', 'theo_so', "$nam · " . $soSheet . ' sheet');
 }
 
 /**

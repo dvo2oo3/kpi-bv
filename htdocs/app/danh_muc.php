@@ -486,3 +486,67 @@ function gop_chi_tieu(int $giuId, array $boIds): array
     db()->commit();
     return ['ok' => true, 'giu' => $giu] + $tt;
 }
+
+/**
+ * Gộp MỀM: biến các chỉ tiêu "bỏ" thành biến thể gộp vào mã bản giữ.
+ * KHÔNG xóa, KHÔNG dời số liệu — chỉ đặt gop_vao để báo cáo tự gom về mã giữ.
+ * Đảo lại được bằng bo_gop_mem_chi_tieu(). Dành cho admin (an toàn hơn gộp cứng).
+ *
+ * @return array{gop:int,giu:array}|array{loi:string}
+ */
+function gop_mem_chi_tieu(int $giuId, array $boIds): array
+{
+    $giu = q1('SELECT * FROM chi_tieu WHERE id = ?', [$giuId]);
+    if (!$giu) { return ['loi' => 'Chỉ tiêu giữ lại không tồn tại.']; }
+    $boIds = array_values(array_unique(array_filter(array_map('intval', $boIds),
+        fn($x) => $x > 0 && $x !== $giuId)));
+    if (!$boIds) { return ['loi' => 'Không có chỉ tiêu nào để gộp.']; }
+
+    foreach (array_merge([$giuId], $boIds) as $x) {
+        $c = q1('SELECT ma FROM chi_tieu WHERE id = ?', [$x]);
+        if (!$c) { return ['loi' => "Chỉ tiêu #$x không tồn tại."]; }
+        if (la_he_thong($c['ma'])) {
+            return ['loi' => "\"{$c['ma']}\" là chỉ tiêu hệ thống — không gộp được."];
+        }
+    }
+
+    db()->beginTransaction();
+    // Bản giữ phải là chuẩn và không tự gộp vào ai (để làm đích gộp hợp lệ).
+    q('UPDATE chi_tieu SET la_chuan = 1, gop_vao = NULL WHERE id = ?', [$giuId]);
+    $n = 0;
+    foreach ($boIds as $dup) {
+        $maDup = qVal('SELECT ma FROM chi_tieu WHERE id = ?', [$dup]);
+        // Chỉ tiêu này gộp vào mã giữ, hạ xuống biến thể riêng.
+        q('UPDATE chi_tieu SET gop_vao = ?, la_chuan = 0 WHERE id = ?', [$giu['ma'], $dup]);
+        // Cái nào đang gộp vào mã dup thì chuyển sang gộp vào mã giữ (giữ chuỗi gộp phẳng).
+        if ($maDup) {
+            q('UPDATE chi_tieu SET gop_vao = ? WHERE gop_vao = ?', [$giu['ma'], $maDup]);
+        }
+        $n++;
+    }
+    db()->commit();
+    return ['gop' => $n, 'giu' => $giu];
+}
+
+/** Bỏ gộp MỀM cho một chỉ tiêu (trả về đứng riêng, thành chuẩn lại). */
+function bo_gop_mem_chi_tieu(int $id): array
+{
+    $ct = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
+    if (!$ct) { return ['loi' => 'Không tìm thấy chỉ tiêu.']; }
+    if (empty($ct['gop_vao'])) { return ['loi' => 'Chỉ tiêu này không ở trạng thái gộp.']; }
+    q('UPDATE chi_tieu SET gop_vao = NULL, la_chuan = 1 WHERE id = ?', [$id]);
+    return ['ok' => true, 'ct' => $ct];
+}
+
+/** Danh sách các chỉ tiêu đang gộp MỀM (gop_vao != null) kèm tên bản giữ. */
+function ds_dang_gop_mem(): array
+{
+    return qAll(
+        "SELECT c.id, c.ma, c.ten, c.gop_vao,
+                g.ten AS ten_giu, g.ma AS ma_giu
+           FROM chi_tieu c
+           LEFT JOIN chi_tieu g ON g.ma = c.gop_vao AND g.la_chuan = 1
+          WHERE c.gop_vao IS NOT NULL AND c.gop_vao <> ''
+          ORDER BY g.ten, c.ten"
+    );
+}

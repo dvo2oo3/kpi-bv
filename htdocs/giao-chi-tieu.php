@@ -529,6 +529,7 @@ if (la_post()) {
         // Sửa nhanh mã: chuẩn hóa về CHỮ HOA + A-Z0-9_; rỗng = giữ mã cũ.
         $maMoi = preg_replace('/[^A-Z0-9_]/', '', chu_hoa((string)post('ct_ma')));
         $loiSua = null;
+        $thieuCotLoaiKhoa = false;   // bật nếu DB host chưa chạy migrate_loai_theo_khoa.sql
         if (!$cu) {
             $loiSua = 'Không tìm thấy chỉ tiêu.';
         } elseif ($tenS === '') {
@@ -566,8 +567,19 @@ if (la_post()) {
             if (!in_array($loaiRieng, ['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'], true)) {
                 $loaiRieng = '';   // rỗng/không hợp lệ = theo loại chung
             }
-            q('UPDATE chi_tieu_ap_dung SET loai_gia_tri = ? WHERE id_chi_tieu = ? AND id_khoa = ?',
-                [$loaiRieng === '' ? null : $loaiRieng, $id, $idKhoa]);
+            try {
+                q('UPDATE chi_tieu_ap_dung SET loai_gia_tri = ? WHERE id_chi_tieu = ? AND id_khoa = ?',
+                    [$loaiRieng === '' ? null : $loaiRieng, $id, $idKhoa]);
+            } catch (Throwable $e) {
+                // CSDL host chưa có cột loai_gia_tri ở chi_tieu_ap_dung (migration chưa chạy).
+                // Chỉ nuốt đúng lỗi "thiếu cột" (SQLSTATE 42S22) để báo rõ; lỗi khác vẫn ném.
+                if (strpos($e->getMessage(), 'loai_gia_tri') !== false
+                    || ($e instanceof PDOException && $e->getCode() === '42S22')) {
+                    $thieuCotLoaiKhoa = true;
+                } else {
+                    throw $e;
+                }
+            }
             // (Vị trí trong bảng do phía client xử lý bằng cơ chế kéo-thả — xem datViTri.)
             // Đổi mã (nếu có): cập nhật luôn các tham chiếu theo mã (gộp vào / công thức).
             if ($maMoi !== '' && $maMoi !== $cu['ma']) {
@@ -587,8 +599,10 @@ if (la_post()) {
             }
             $ct2 = q1('SELECT * FROM chi_tieu WHERE id = ?', [$id]);
             // Loại riêng khoa vừa lưu (đọc tươi, không qua cache) để dòng trả về đúng.
-            $ovMoi = qVal('SELECT loai_gia_tri FROM chi_tieu_ap_dung WHERE id_chi_tieu=? AND id_khoa=?',
-                [$id, $idKhoa]);
+            // Nếu DB thiếu cột (migration chưa chạy) → coi như không có loại riêng.
+            $ovMoi = $thieuCotLoaiKhoa ? null
+                : qVal('SELECT loai_gia_tri FROM chi_tieu_ap_dung WHERE id_chi_tieu=? AND id_khoa=?',
+                    [$id, $idKhoa]);
             $ct2['loai_chung']   = $ct2['loai_gia_tri'];
             $ct2['loai_rieng']   = $ovMoi ?: '';
             $ct2['loai_gia_tri'] = $ovMoi ?: $ct2['loai_gia_tri'];
@@ -599,14 +613,25 @@ if (la_post()) {
                 if ((int)$c['id'] === $id) { $ct2['cap'] = (int)$c['cap']; $ct2['vi_tri'] = (int)$c['vi_tri']; break; }
             }
             $r2 = ke_hoach_nam($nam, $idKhoa)[$id] ?? null;
+            $msg = 'Đã lưu "' . $tenS . '".';
+            if ($thieuCotLoaiKhoa) {
+                $msg .= ' (Lưu ý: loại giá trị RIÊNG theo khoa chưa dùng được — CSDL thiếu'
+                      . ' cột "loai_gia_tri" ở bảng chi_tieu_ap_dung. Chạy một lần'
+                      . ' install/migrate_loai_theo_khoa.sql trong phpMyAdmin để bật.)';
+            }
             echo json_encode([
                 'ok'  => true, 'id' => $id,
-                'msg' => 'Đã lưu "' . $tenS . '".',
+                'msg' => $msg,
                 'row' => dong_giao($ct2, $r2, $nam, $idKhoa, $duocSuaCT, $duocThemCT, false),
             ], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
             exit;
         }
         if ($loiSua !== null) { nhan_tin('loi', $loiSua); }
+        elseif ($thieuCotLoaiKhoa) {
+            nhan_tin('canh-bao', "Đã cập nhật \"$tenS\", nhưng loại giá trị RIÊNG theo khoa chưa"
+                . ' dùng được: CSDL thiếu cột "loai_gia_tri" ở bảng chi_tieu_ap_dung. Chạy một lần'
+                . ' install/migrate_loai_theo_khoa.sql trong phpMyAdmin để bật tính năng này.');
+        }
         else { nhan_tin('ok', "Đã cập nhật \"$tenS\"."); }
         chuyen_huong("/giao-chi-tieu.php?nam=$nam&khoa=$idKhoa");
     }

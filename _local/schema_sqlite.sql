@@ -78,6 +78,21 @@ CREATE TABLE ke_hoach_thang (
   PRIMARY KEY (nam, thang, id_khoa, id_chi_tieu)
 );
 
+-- Số TOÀN VIỆN nhập tay: đè phép cộng khoa cho các chỉ tiêu bị đếm trùng
+-- (vd tổng số lượt khám). Có bản ghi = "nhập tay"; xoá = quay về tự cộng.
+CREATE TABLE so_toan_vien (
+  nam INTEGER NOT NULL, id_chi_tieu INTEGER NOT NULL,
+  chi_tieu_giao REAL, thuc_hien REAL, ghi_chu TEXT,
+  PRIMARY KEY (nam, id_chi_tieu)
+);
+
+-- Số TOÀN VIỆN nhập tay theo TỪNG THÁNG (đè phép cộng khoa của đúng tháng đó).
+CREATE TABLE so_toan_vien_thang (
+  nam INTEGER NOT NULL, thang INTEGER NOT NULL, id_chi_tieu INTEGER NOT NULL,
+  gia_tri REAL,
+  PRIMARY KEY (nam, thang, id_chi_tieu)
+);
+
 CREATE TABLE ky (
   nam INTEGER NOT NULL, thang INTEGER NOT NULL, id_khoa INTEGER NOT NULL,
   trang_thai TEXT NOT NULL DEFAULT 'MO',

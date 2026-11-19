@@ -67,7 +67,7 @@
       <h3>Diễn biến 12 tháng — <?= e($theDuong['ct']['ten']) ?></h3>
       <span class="phu nho">đơn vị: <?= e($theDuong['ct']['don_vi']) ?></span>
     </div>
-    <?= bieu_do_duong($theDuong['chuoi'], $theDuong['ct']['don_vi'], $theDuong['le']) ?>
+    <?= bieu_do_duong($theDuong['chuoi'], $theDuong['ct']['don_vi'], $theDuong['le'], true) ?>
     <?= nhan_thang() ?>
   </div>
   <?php endif; ?>

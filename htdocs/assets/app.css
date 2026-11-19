@@ -49,12 +49,13 @@
   --bong-2: 0 6px 16px -3px rgba(15, 23, 42, 0.08), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
   --bong-3: 0 16px 32px -8px rgba(15, 23, 42, 0.18);
 
-  /* Bán kính bo góc */
-  --bo-goc: 10px;
-  --bo-goc-nho: 6px;
-  --bo-goc-nhieu: 14px;
+  /* Bán kính bo góc — bo mềm hơn cho cảm giác hiện đại */
+  --bo-goc: 12px;
+  --bo-goc-nho: 8px;
+  --bo-goc-nhieu: 16px;
 
   --rong: 1360px;
+  --cao-dinh: 86px;   /* chiều cao thanh đầu trang (sticky) — để tiêu đề bảng dính dưới nó */
 }
 
 * { box-sizing: border-box; }
@@ -428,6 +429,10 @@ code {
   margin: 20px auto 40px;
   padding: 0 20px;
 }
+/* Trang biểu mẫu: thu hẹp + căn giữa cột nội dung cho cân đối trên màn rộng. */
+.noi-dung-hep { max-width: 940px; }
+.noi-dung-hep > .the-hop,
+.noi-dung-hep > form:not(.hop-hep) { max-width: none; }
 
 .noi-dung-giua {
   max-width: 420px;
@@ -516,7 +521,7 @@ input[type=number]:focus, input:not([type]):focus, select:focus, textarea:focus 
 }
 
 select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%200f172a'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23334155'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   background-size: 15px;
@@ -601,18 +606,27 @@ select {
 }
 
 /* Nhóm chọn khoa */
+/* Làm phẳng fieldset: bỏ "box trong box", thay bằng gạch ngăn trên + tiêu đề đậm. */
 .nhom-khoa {
-  border: 1px solid var(--vien);
-  border-radius: var(--bo-goc-nho);
-  padding: 14px 16px 8px;
-  margin: 2px 0 18px;
-  background: var(--xanh-50);
+  border: 0;
+  border-top: 1px solid var(--vien-nhat);
+  border-radius: 0;
+  padding: 16px 0 4px;
+  margin: 8px 0 14px;
+  background: transparent;
 }
 .nhom-khoa legend {
-  font-size: 12.5px; font-weight: 650; color: var(--chu-2);
-  padding: 0 6px;
+  font-size: 13px; font-weight: 700; color: var(--chu);
+  padding: 0; margin-bottom: 6px;
 }
 .nhom-khoa legend .phu { font-weight: 400; }
+/* Fieldset đầu tiên trong thẻ không cần gạch ngăn phía trên. */
+.the-hop > .nhom-khoa:first-of-type { border-top: 0; padding-top: 2px; margin-top: 0; }
+
+/* Thư viện chỉ tiêu: cột "Kiểu" gộp Loại · Nguồn · Đánh giá cho gọn, dễ quét. */
+.o-kieu .kieu-loai { display: block; font-weight: 500; line-height: 1.3; color: var(--chu); }
+.o-kieu .kieu-phu  { display: block; font-size: 11.5px; margin-top: 2px; }
+.o-tt-gop { white-space: nowrap; }
 .luoi-o-chon[hidden] { display: none; }
 .luoi-o-chon {
   display: grid;
@@ -2370,7 +2384,7 @@ tr:hover .them-con-nut { opacity: 1; }
 .chon-xem a {
   font-size: 12.5px; font-weight: 600; text-decoration: none;
   color: var(--chu-2); padding: 5px 12px;
-  border: 1px solid var(--vien); background: #fff;
+  border: 1px solid var(--vien); background: var(--the);
 }
 .chon-xem a:first-of-type { border-radius: var(--bo-goc-nho) 0 0 var(--bo-goc-nho); }
 .chon-xem a:last-of-type  { border-radius: 0 var(--bo-goc-nho) var(--bo-goc-nho) 0; border-left: 0; }
@@ -2542,6 +2556,19 @@ tr:hover .them-con-nut { opacity: 1; }
 .bd-dau { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
 .bd-dau h3 { margin: 0; font-size: 13.5px; color: var(--xanh-900); }
 .khung-bd .bd { height: 150px; }
+
+/* Lớp nhãn số trên biểu đồ đường (chỉ biểu đồ lớn "Diễn biến 12 tháng"). */
+.bd-boc { position: relative; }
+.bd-nhan-lop { position: absolute; inset: 0; pointer-events: none; }
+.bd-nhan {
+  position: absolute;
+  transform: translate(-50%, -150%);
+  font-size: 11px; font-weight: 700; line-height: 1;
+  color: var(--xanh-900); white-space: nowrap;
+  padding: 1px 4px; border-radius: 5px;
+  background: color-mix(in srgb, var(--the) 82%, transparent);
+}
+html[data-theme="dark"] .bd-nhan { color: #cfe6ff; background: color-mix(in srgb, #0b1220 70%, transparent); }
 .khung-gauge { display: flex; flex-direction: column; align-items: center; }
 .gauge { width: 100%; max-width: 210px; height: auto; margin-top: 6px; }
 .gauge-nen { fill: none; stroke: #eef2f6; stroke-width: 9; stroke-linecap: round; }
@@ -2938,6 +2965,13 @@ tr:hover .ct-dieu-khien, .ct-dieu-khien:focus-within { opacity: 1; pointer-event
   .bang th, .bang td { padding-left: 8px; padding-right: 8px; }
   .bang { font-size: 12.5px; }
 
+  /* --- Nhãn số trên biểu đồ: nhỏ lại cho khỏi chồng khi chart hẹp --- */
+  .bd-nhan { font-size: 9px; padding: 0 2px; font-weight: 600; }
+
+  /* --- Trang biểu mẫu: dùng trọn bề ngang trên điện thoại --- */
+  .noi-dung-hep { max-width: none; }
+  .nhom-khoa { padding-top: 12px; }
+
   /* --- Popup xác nhận trong app: nút bấm to, dễ chạm --- */
   .hop-xac-nhan .xn-nut { flex-direction: column-reverse; }
   .hop-xac-nhan .xn-nut .nut { width: 100%; }
@@ -2987,3 +3021,307 @@ tr:hover .ct-dieu-khien, .ct-dieu-khien:focus-within { opacity: 1; pointer-event
 
 /* Tab con dạng <button> (trang Sao lưu) — reset nút cho giống link tab */
 button.tab-phu-muc { border: 0; background: transparent; cursor: pointer; font-family: inherit; }
+
+/* =============================================================
+   NÚT CHUYỂN SÁNG / TỐI  (trên thanh đầu trang)
+   ============================================================= */
+.nut-giao-dien {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex: 0 0 32px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: var(--bo-goc-nho);
+  color: #f1f5f9; cursor: pointer;
+  transition: background .15s ease;
+}
+.nut-giao-dien:hover { background: rgba(255,255,255,.18); }
+.nut-giao-dien svg { width: 17px; height: 17px; display: block; }
+.nut-giao-dien .icon-toi { display: none; }
+html[data-theme="dark"] .nut-giao-dien .icon-sang { display: none; }
+html[data-theme="dark"] .nut-giao-dien .icon-toi  { display: block; }
+
+/* =============================================================
+   CHẾ ĐỘ TỐI (Dark mode) — bật bằng data-theme="dark" trên <html>.
+   Đổi các biến màu nền tảng; thêm vài override cho chỗ dùng mã màu cứng.
+   ============================================================= */
+html[data-theme="dark"] {
+  --nen:      #0b1220;
+  --the:      #151d2c;
+  --vien:     #2b3a52;
+  --vien-nhat:#223049;
+  --nen-nhe:  #1a2334;
+  --chu:      #e6eaf2;
+  --chu-1:    #e6eaf2;   /* nhiều chỗ dùng var(--chu-1,#1e293b) — định nghĩa để sáng lên */
+  --chu-2:    #b8c3d6;
+  --chu-3:    #8a99b0;
+  --xanh-900: #e8edf5;
+  --xanh-800: #dbe3ef;
+  --xanh-50:  #10243a;
+  --xanh-100: #123048;
+  --ok-nen:   #0e2a20;
+  --canh-nen: #2a220f;
+  --loi-nen:  #2a1414;
+  --tim-nen:  #1b1a35;
+  --bong-1: 0 1px 3px rgba(0,0,0,.42), 0 1px 2px rgba(0,0,0,.3);
+  --bong-2: 0 8px 20px -4px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+html[data-theme="dark"] body { background: var(--nen); color: var(--chu); }
+
+/* Màn đăng nhập ở chế độ tối: panel form bên phải phải đổi nền tối, chữ sáng rõ.
+   Trước đây .dn-form-vung ép nền trắng cứng nên chữ (đã sáng theo dark) bị lóa. */
+html[data-theme="dark"] body:has(.man-dang-nhap) { background: var(--nen); }
+html[data-theme="dark"] .dn-form-vung {
+  background:
+    radial-gradient(700px 340px at 50% -10%, #11233b 0%, transparent 70%),
+    var(--nen);
+}
+html[data-theme="dark"] .dn-form-dau h2 { color: var(--chu); }
+html[data-theme="dark"] .dn-form-dau p,
+html[data-theme="dark"] .dn-ghi-chu { color: var(--chu-3); }
+html[data-theme="dark"] .dn-form label { color: var(--chu-2); }
+html[data-theme="dark"] .dn-mini-hieu { color: var(--chu); }
+
+/* Ô nhập */
+html[data-theme="dark"] input[type=text], html[data-theme="dark"] input[type=password],
+html[data-theme="dark"] input[type=date], html[data-theme="dark"] input[type=number],
+html[data-theme="dark"] input:not([type]), html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: #0f1826; color: var(--chu); border-color: var(--vien);
+}
+html[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23cbd5e1'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 15px;
+}
+/* Bảng */
+html[data-theme="dark"] .bang th { background: #1b2740; color: var(--chu); border-color: var(--vien); }
+html[data-theme="dark"] .bang td { color: var(--chu-2); border-color: var(--vien-nhat); }
+html[data-theme="dark"] .bang tbody tr:nth-child(even) td { background: #141d2d; }
+html[data-theme="dark"] .bang tbody tr:nth-child(odd) td  { background: #121a28; }
+html[data-theme="dark"] .bang tbody tr:hover td { background: #1d3350 !important; color: #fff; }
+html[data-theme="dark"] .bang .dong-tong td,
+html[data-theme="dark"] .bang .dong-nhom td { background: #1b2740 !important; color: var(--chu); }
+/* Nút trung tính (giữ nguyên nút gradient chính) */
+html[data-theme="dark"] .nut, html[data-theme="dark"] .nut-phu { background: #1b2436; color: var(--chu); border-color: var(--vien); }
+html[data-theme="dark"] .nut:hover, html[data-theme="dark"] .nut-phu:hover { background: #243049; color: #fff; border-color: #3a4c6a; }
+/* Linh tinh nền sáng cứng */
+html[data-theme="dark"] code { background: #15233a; border-color: #2b3a52; color: #7dd3fc; }
+html[data-theme="dark"] .o-chon:hover { background: #1b2436; }
+html[data-theme="dark"] .toast { background: #151d2c; color: var(--chu); }
+html[data-theme="dark"] .the-cho-nop { background: #151d2c; color: var(--chu); }
+html[data-theme="dark"] .tab-phu { background: #111a28; }
+html[data-theme="dark"] .tab-phu-muc.dang { background: #1e2a40; }
+html[data-theme="dark"] .combo-list { background: #151d2c; }
+html[data-theme="dark"] .gia-tri-moi { background: #3a3414; color: #fde68a; }
+
+/* --- Dark mode (phần 2): phủ các chỗ còn dùng mã màu sáng cứng --- */
+/* Mọi ô nhập trong bảng/form — !important để thắng rule riêng của từng ô */
+html[data-theme="dark"] input:not([type=checkbox]):not([type=radio]):not([type=file]),
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: #0f1826 !important;
+  color: var(--chu) !important;
+  border-color: var(--vien) !important;
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder { color: #6b7a90; }
+/* Ô phụ (năng lực, thực hiện năm trước…) hơi khác tông cho dễ phân biệt */
+html[data-theme="dark"] .bang-nhap td input.o-so.o-phu { background-color: #141d2d !important; }
+
+/* Nút cột "Thao tác" (Xem / Sửa / Mở lại / Duyệt / Xóa…) */
+html[data-theme="dark"] td.thao-tac > a.nut,
+html[data-theme="dark"] td.thao-tac > button.nut-phu,
+html[data-theme="dark"] td.thao-tac > form > button.nut-phu {
+  background: #1b2436; color: var(--chu-2); border-color: var(--vien);
+}
+html[data-theme="dark"] td.thao-tac > a.nut:hover,
+html[data-theme="dark"] td.thao-tac > button.nut-phu:hover,
+html[data-theme="dark"] td.thao-tac > form > button.nut-phu:hover {
+  background: #243049; color: #fff; border-color: #3a4c6a;
+}
+html[data-theme="dark"] td.thao-tac > button.nut-canh,
+html[data-theme="dark"] td.thao-tac > form > button.nut-canh,
+html[data-theme="dark"] td.thao-tac > details > summary {
+  background: #2a2113; color: #fcd34d; border-color: #5a4a1e;
+}
+html[data-theme="dark"] td.thao-tac > button.nut-nguy,
+html[data-theme="dark"] td.thao-tac > form > button.nut-nguy {
+  background: #2a1414; color: #fca5a5; border-color: #5a2626;
+}
+
+/* Modal / popup */
+html[data-theme="dark"] .hop-modal,
+html[data-theme="dark"] .hop-tro-giup,
+html[data-theme="dark"] .hop-xac-nhan,
+html[data-theme="dark"] .form-tra-lai { background: #151d2c; color: var(--chu); }
+html[data-theme="dark"] .modal-than { background: #111a28; }
+html[data-theme="dark"] .modal-dau { background: #151d2c; border-bottom-color: var(--vien); }
+html[data-theme="dark"] .modal-dau h2 { color: var(--chu); }
+html[data-theme="dark"] .dong-tro-giup { color: var(--chu-2); }
+
+/* Nút cảnh báo / nguy hiểm (Vô hiệu hóa / Xóa / Ngừng dùng) ở MỌI nơi — nền sáng cứng */
+html[data-theme="dark"] .nut-canh {
+  background: #2a2113 !important; color: #fcd34d !important; border-color: #5a4a1e !important;
+}
+html[data-theme="dark"] .nut-canh:hover { background: #3a2e18 !important; border-color: #7a641e !important; }
+html[data-theme="dark"] .nut-nguy {
+  background: #2a1414 !important; color: #fca5a5 !important; border-color: #5a2626 !important;
+}
+html[data-theme="dark"] .nut-nguy:hover {
+  background: var(--loi) !important; color: #fff !important; border-color: var(--loi) !important;
+}
+/* Nút × đóng modal */
+html[data-theme="dark"] .dong-tro-giup { background: #1b2436; color: var(--chu-2); }
+html[data-theme="dark"] .dong-tro-giup:hover { background: #243049; color: #fff; }
+
+/* Nhãn nền sáng */
+html[data-theme="dark"] .the-rieng { background: #3a2e12; color: #fcd34d; }
+html[data-theme="dark"] .the-chuan,
+html[data-theme="dark"] .the-gop { background: #123048; color: #7dd3fc; }
+html[data-theme="dark"] .o-chon:hover { background: #1b2436; }
+/* Badge trung tính xám cứng (Chưa đủ dữ liệu / Chưa đến / =) */
+html[data-theme="dark"] .dg-na,
+html[data-theme="dark"] .tt-chua_den,
+html[data-theme="dark"] .o-thang.tt-chua_den { background: #1e2a3d !important; color: var(--chu-3); border-color: var(--vien); }
+html[data-theme="dark"] .delta-bang  { background: #1e2a3d; color: #8a99b0; }
+/* Khung sparkline + ô tháng ("Số liệu từng tháng") nền #f8fafc cứng */
+html[data-theme="dark"] .kpi-bieu-do { background: #111a28; border-color: var(--vien-nhat); }
+html[data-theme="dark"] .ot          { background: #141d2d; border-color: var(--vien-nhat); }
+/* Thanh tiến độ (track) + link khoa nền sáng */
+html[data-theme="dark"] .dai-thang      { background: #1e2a3d; }
+html[data-theme="dark"] .lien-ket-khoa  { background: #1b2436; color: var(--chu-2); border-color: var(--vien); }
+html[data-theme="dark"] .lien-ket-khoa:hover { background: #243049; color: #7dd3fc; border-color: #3a4c6a; }
+
+/* ===== Vá dark mode: chỗ còn dùng nền sáng cứng ===== */
+/* Cột lũy kế Quý I / 6T / 9T / Cả năm trong bảng 12 tháng (báo cáo):
+   nền vàng cứng #fef3c7 / #fde68a khiến chữ sáng bị lóa — đổi sang amber tối. */
+html[data-theme="dark"] [style*="background:#fef3c7"] { background: #2a2512 !important; color: #f5deb3 !important; }
+html[data-theme="dark"] [style*="background:#fde68a"] { background: #3a3414 !important; color: #fde68a !important; }
+/* Modal "Gộp các dòng" (báo cáo) — nền trắng cứng #fff, chữ sáng không đọc được. */
+html[data-theme="dark"] .bc-gop-pop { background: var(--the); color: var(--chu); border-color: var(--vien); }
+html[data-theme="dark"] .bc-gop-pop strong,
+html[data-theme="dark"] .bc-gop-pop label { color: var(--chu); }
+/* Checkbox "Đợt/chiến dịch" (nhập số liệu): native không chịu tối theo color-scheme,
+   nên custom hẳn (appearance:none) để kiểm soát cả 2 trạng thái ở 2 giao diện. */
+.o-chien-dich {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; margin: 0; vertical-align: middle;
+  border: 1.5px solid #94a3b8; border-radius: 4px;
+  background: #ffffff; cursor: pointer; position: relative;
+}
+.o-chien-dich:checked { background: #0d9488; border-color: #0d9488; }
+.o-chien-dich:checked::after {
+  content: ""; position: absolute; left: 4.5px; top: 1.5px;
+  width: 4px; height: 8px; border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.o-chien-dich:focus-visible { outline: 2px solid #0d9488; outline-offset: 1px; }
+html[data-theme="dark"] .o-chien-dich { background: #0f1826; border-color: #3a4c6a; }
+html[data-theme="dark"] .o-chien-dich:checked { background: #2dd4bf; border-color: #2dd4bf; }
+html[data-theme="dark"] .o-chien-dich:checked::after { border-color: #0b1220; }
+/* Thẻ KPI tóm tắt (Đạt/Gần đạt/Chưa đạt/Vượt): nền fade xuống #ffffff -> ở dark ra trắng.
+   Đổi đích fade sang nền thẻ tối. */
+html[data-theme="dark"] .o-dat       { background: linear-gradient(180deg, var(--ok-nen)   0%, var(--the) 62%); }
+html[data-theme="dark"] .o-canh-bao  { background: linear-gradient(180deg, var(--canh-nen) 0%, var(--the) 62%); }
+html[data-theme="dark"] .o-khong-dat { background: linear-gradient(180deg, var(--loi-nen)  0%, var(--the) 62%); }
+html[data-theme="dark"] .o-vuot      { background: linear-gradient(180deg, var(--tim-nen)  0%, var(--the) 62%); }
+/* Panel Sao lưu: vệt radial #eff8ff góc trên-phải -> ở dark thành mảng trắng. Làm dịu lại. */
+html[data-theme="dark"] .sl-the {
+  background: radial-gradient(600px 200px at 100% 0%, rgba(56,189,248,.08) 0%, transparent 70%), var(--the);
+}
+/* Checkbox native bỏ trống render sáng ở dark mode (rải rác nhiều trang) -> custom chung
+   cho mọi checkbox ở chế độ tối; chế độ sáng giữ nguyên native. */
+html[data-theme="dark"] input[type=checkbox] {
+  appearance: none; -webkit-appearance: none;
+  width: 16px; height: 16px; margin: 0; vertical-align: middle;
+  border: 1.5px solid #3a4c6a; border-radius: 4px;
+  background: #0f1826; cursor: pointer; position: relative;
+}
+html[data-theme="dark"] input[type=checkbox]:checked { background: #2dd4bf; border-color: #2dd4bf; }
+html[data-theme="dark"] input[type=checkbox]:checked::after {
+  content: ""; position: absolute; left: 4.5px; top: 1.5px;
+  width: 4px; height: 8px; border: solid #0b1220; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+html[data-theme="dark"] input[type=checkbox]:focus-visible { outline: 2px solid #2dd4bf; outline-offset: 1px; }
+
+/* Cụm nút thao tác hàng (▲ ▼ ✎ ＋ ✕) ở Giao chỉ tiêu — bỏ nền trắng cứng ở chế độ tối */
+html[data-theme="dark"] .ct-dieu-khien {
+  background: #1b2536; border: 1px solid var(--vien);
+  box-shadow: 0 2px 10px rgba(0,0,0,.55);
+}
+html[data-theme="dark"] .ct-nut {
+  background: #0f1826; color: var(--chu-2); border-color: var(--vien);
+}
+html[data-theme="dark"] .ct-dieu-khien .ct-nut:hover,
+html[data-theme="dark"] .ct-dieu-khien .them-con-nut:hover,
+html[data-theme="dark"] .ct-nut:hover,
+html[data-theme="dark"] .them-con-nut:hover {
+  background: var(--xanh-50); border-color: #2dd4bf; color: #7fe7dc;
+}
+html[data-theme="dark"] .ct-nut-xoa:hover,
+html[data-theme="dark"] .ct-dieu-khien .ct-nut-xoa:hover {
+  background: var(--loi-nen); border-color: #f87171; color: #fca5a5;
+}
+
+/* ===== Truy quét dark mode (phần 3): các nền sáng cứng còn sót ===== */
+/* Thẻ căn giữa (form giữa trang) bị ép #fff */
+html[data-theme="dark"] .noi-dung-giua .the-hop { background: var(--the); box-shadow: var(--bong-2); }
+/* Ô "loại riêng theo khoa" tô cam nhạt */
+html[data-theme="dark"] .o-khac-chung { background: #2a2113 !important; }
+/* Badge tăng/giảm/ghi chú dạng viên ("So tháng trước") */
+html[data-theme="dark"] .delta-len  { background: #0e2a20; color: #6ee7b7; }
+html[data-theme="dark"] .delta-giam { background: #2a1414; color: #fca5a5; }
+html[data-theme="dark"] .delta-moi  { background: #1f1a38; color: #c4b5fd; }
+/* Link "sang trang gộp" khi hover + nhãn mã chưa gán khoa */
+html[data-theme="dark"] .lien-ktl:hover { background: #123048; }
+html[data-theme="dark"] .combo-khoa-khong { background: #3a2e12; color: #fcd34d; }
+/* Dấu "đã điều chỉnh cũ→mới" + nhãn "khoa xin mở lại" */
+html[data-theme="dark"] .dau-dieu-chinh { background: #2a2113; border-color: #5a4a1e; color: #fcd34d; }
+html[data-theme="dark"] .dau-dieu-chinh .dc-cu  { color: #8a99b0; }
+html[data-theme="dark"] .dau-dieu-chinh .dc-moi { color: #6ee7b7; }
+html[data-theme="dark"] .the-yeu-cau { background: #2a1414; border-color: #5a2626; color: #fca5a5; }
+/* Thanh tiến độ (track) xám sáng */
+html[data-theme="dark"] .thanh-tien-do.rong { background: #1e2a3d; }
+/* Dòng "vừa thêm" (nền + animation nhấp nháy xanh nhạt) */
+html[data-theme="dark"] .bang-nhap tbody tr.vua-them td { background: #0e2a20; animation-name: nhapNhayToi; }
+@keyframes nhapNhayToi { 0%, 100% { background: #0e2a20; } 50% { background: #123a2a; } }
+/* Dòng hệ thống tự tính (Nhập số liệu) nền xanh nhạt cứng */
+html[data-theme="dark"] .bang-nhap tbody tr.dong-tinh td { background: #13203a; }
+/* Dòng nổi bật khi nhảy tới (#ct-id) — keyframe nền vàng sáng → amber tối */
+html[data-theme="dark"] tr.dong-noi-bat > td { animation-name: dongNoiBatToi; }
+@keyframes dongNoiBatToi {
+  0%, 30% { background: #2a2512; box-shadow: inset 3px 0 0 #a16207; }
+  100%    { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+}
+/* Cụm nút cột "Thao tác" dạng lưới (.nhom-tt) ở các bảng quản trị */
+html[data-theme="dark"] .nhom-tt > button,
+html[data-theme="dark"] .nhom-tt > form > button { background: #1b2436; color: #7dd3fc; border-color: var(--vien); }
+html[data-theme="dark"] .nhom-tt > button:hover,
+html[data-theme="dark"] .nhom-tt > form > button:hover { background: #243049; color: #fff; border-color: #3a4c6a; }
+html[data-theme="dark"] .nhom-tt > button.nut-canh,
+html[data-theme="dark"] .nhom-tt > form > button.nut-canh { background: #2a2113; color: #fcd34d; border-color: #5a4a1e; }
+html[data-theme="dark"] .nhom-tt > button.nut-canh:hover,
+html[data-theme="dark"] .nhom-tt > form > button.nut-canh:hover { background: #f59e0b; color: #1b1405; border-color: #f59e0b; }
+html[data-theme="dark"] .nhom-tt > button.nut-nguy,
+html[data-theme="dark"] .nhom-tt > form > button.nut-nguy { background: #2a1414; color: #fca5a5; border-color: #5a2626; }
+html[data-theme="dark"] .nhom-tt > button.nut-nguy:hover,
+html[data-theme="dark"] .nhom-tt > form > button.nut-nguy:hover { background: #dc2626; color: #fff; border-color: #dc2626; }
+/* Popover "Sửa" trong bảng (.thao-tac details form) + summary hover/viền */
+html[data-theme="dark"] .thao-tac details form { background: var(--the); color: var(--chu); border-color: var(--xanh-600); }
+html[data-theme="dark"] .thao-tac details form label { color: var(--chu-2); }
+html[data-theme="dark"] .thao-tac details summary { border-color: #2b4a66; }
+html[data-theme="dark"] .thao-tac details summary:hover { background: #123048; color: #7dd3fc; }
+/* Đầu popup Trợ giúp (.tro-giup-dau) nền #f8fafc */
+html[data-theme="dark"] .tro-giup-dau { background: #111a28; border-bottom-color: var(--vien); }
+html[data-theme="dark"] .tro-giup-dau h3 { color: var(--chu); }
+/* Nút phân trang nền #fff */
+html[data-theme="dark"] .phan-trang a { background: #1b2436; color: var(--chu-2); border-color: var(--vien); }
+html[data-theme="dark"] .phan-trang a:hover { background: #243049; color: #7dd3fc; border-color: #3a4c6a; }
+/* Cột biểu đồ (track) báo cáo + sparkline từng dòng */
+html[data-theme="dark"] .bc-cot-1 { background: #16202f; }
+html[data-theme="dark"] .spark-c  { background: #16202f; }
+/* Nền vòng tròn donut + gauge (track xám sáng) */
+html[data-theme="dark"] .donut-nen,
+html[data-theme="dark"] .gauge-nen { stroke: #223049; }

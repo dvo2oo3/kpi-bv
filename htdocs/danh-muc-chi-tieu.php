@@ -255,10 +255,10 @@ mo_trang('Thư viện chỉ tiêu');
     <?php if ($duocThem): ?>
       <a class="nut" href="/chi-tieu-them.php">+ Thêm chỉ tiêu</a>
     <?php endif; ?>
-    <?php if (co_quyen('chitieu.xoa')): $soNhomTrung = so_nhom_trung_chac(); ?>
+    <?php if (co_quyen('chitieu.gop')): $soNhomTrung = so_nhom_trung_chac(); ?>
       <a class="nut <?= $soNhomTrung ? 'nut-canh' : 'nut-phu' ?>" href="/gop-trung-lap.php"
          title="Tìm các chỉ tiêu cùng tên bị tách thành nhiều mã và gộp lại">
-        Kiểm tra trùng lặp<?= $soNhomTrung ? ' <span class="menu-badge">' . $soNhomTrung . '</span>' : '' ?>
+        Gộp đối tượng trùng<?= $soNhomTrung ? ' <span class="menu-badge">' . $soNhomTrung . '</span>' : '' ?>
       </a>
     <?php endif; ?>
     <?php if (co_quyen('chitieu.nap_mac_dinh')): ?>
@@ -312,8 +312,8 @@ mo_trang('Thư viện chỉ tiêu');
 <table class="bang bang-mot-dong" id="bang-dm">
   <thead>
     <tr>
-      <th>Mã</th><th>Nội dung</th><th>Đơn vị</th><th>Loại</th>
-      <th>Nguồn</th><th>Đánh giá</th><th>Khoa áp dụng</th><th>Thư viện</th><th>Trạng thái</th>
+      <th>Mã</th><th>Nội dung</th><th>Đơn vị</th><th>Kiểu</th>
+      <th>Khoa áp dụng</th><th>Trạng thái</th>
       <?php if ($duocSua): ?><th>Thao tác</th><?php endif; ?>
     </tr>
   </thead>
@@ -339,11 +339,10 @@ mo_trang('Thư viện chỉ tiêu');
         <?php endif; ?>
       </td>
       <td class="nho"><?= e($ct['don_vi']) ?></td>
-      <td class="nho"><?= e(NHAN[$ct['loai_gia_tri']] ?? $ct['loai_gia_tri']) ?></td>
-      <td class="nho"><?= $ct['nguon'] === 'NHAP_TAY'
-              ? '<span class="phu">Khoa nhập</span>'
-              : '<strong>' . e(NHAN[$ct['nguon']]) . '</strong>' ?></td>
-      <td class="nho"><?= e(NHAN[$ct['huong']] ?? $ct['huong']) ?></td>
+      <td class="nho o-kieu">
+        <span class="kieu-loai"><?= e(NHAN[$ct['loai_gia_tri']] ?? $ct['loai_gia_tri']) ?></span>
+        <span class="kieu-phu phu"><?= $ct['nguon'] === 'NHAP_TAY' ? 'Khoa nhập' : e(NHAN[$ct['nguon']]) ?> · <?= e(NHAN[$ct['huong']] ?? $ct['huong']) ?></span>
+      </td>
       <td class="nho">
         <?php if ($ds):
             // Khoa áp dụng có thể tới 11 mã. Gói lại một dòng, trỏ chuột xem
@@ -362,19 +361,15 @@ mo_trang('Thư viện chỉ tiêu');
           <span class="canh-bao-nho">chưa gán khoa</span>
         <?php endif; ?>
       </td>
-      <td class="nho o-thuvien">
-        <?php if ($heThong || (int)($ct['la_chuan'] ?? 1) === 1): ?>
-          <span class="the the-nho the-chuan">Chuẩn</span>
-        <?php else: ?>
-          <span class="the the-nho the-rieng">Riêng</span>
-          <?php if (!empty($ct['gop_vao'])): $gv = chi_tieu_theo_ma($ct['gop_vao']); ?>
-            <div class="phu" style="font-size:11px;margin-top:2px">↗ <?= e($gv ? $gv['ten'] : $ct['gop_vao']) ?></div>
-          <?php endif; ?>
+      <td class="nho o-tt-gop">
+        <span class="o-thuvien"><?php if ($heThong || (int)($ct['la_chuan'] ?? 1) === 1): ?><span class="the the-nho the-chuan">Chuẩn</span><?php else: ?><span class="the the-nho the-rieng">Riêng</span><?php endif; ?></span>
+        <?php if (!$heThong && (int)($ct['la_chuan'] ?? 1) !== 1 && !empty($ct['gop_vao'])): $gv = chi_tieu_theo_ma($ct['gop_vao']); ?>
+          <div class="phu" style="font-size:11px;margin-top:2px">↗ <?= e($gv ? $gv['ten'] : $ct['gop_vao']) ?></div>
         <?php endif; ?>
-      </td>
-      <td class="o-trangthai"><?= (int)$ct['hoat_dong']
+        <div class="o-trangthai" style="margin-top:4px"><?= (int)$ct['hoat_dong']
               ? '<span class="trang-thai bat">Đang dùng</span>'
-              : '<span class="trang-thai tat">Ngừng</span>' ?></td>
+              : '<span class="trang-thai tat">Ngừng</span>' ?></div>
+      </td>
       <?php if ($duocSua): ?>
       <td class="thao-tac"><div class="nhom-tt">
         <button type="button" class="nut nut-nho nut-phu" data-mo="sua-<?= $id ?>">Sửa</button>

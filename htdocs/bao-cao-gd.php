@@ -25,10 +25,11 @@ function bcgd_doc_form(array $ds, string $pid): array
         'toan_vien' => isset($_POST['toan_vien']) ? 1 : 0,
         'chi_tiet_thang' => isset($_POST['chi_tiet_thang']) ? 1 : 0,
         'cot'       => [
-            'nam_truoc' => isset($_POST['cot']['nam_truoc']) ? 1 : 0,
-            'chi_tieu'  => isset($_POST['cot']['chi_tieu'])  ? 1 : 0,
-            'ket_qua'   => isset($_POST['cot']['ket_qua'])   ? 1 : 0,
-            'pt'        => isset($_POST['cot']['pt'])         ? 1 : 0,
+            'nam_truoc'      => isset($_POST['cot']['nam_truoc'])      ? 1 : 0,
+            'chi_tieu_truoc' => isset($_POST['cot']['chi_tieu_truoc']) ? 1 : 0,
+            'chi_tieu'       => isset($_POST['cot']['chi_tieu'])       ? 1 : 0,
+            'ket_qua'        => isset($_POST['cot']['ket_qua'])        ? 1 : 0,
+            'pt'             => isset($_POST['cot']['pt'])             ? 1 : 0,
         ],
     ];
     $kc = $_POST['khoa'] ?? [];
@@ -48,6 +49,14 @@ function bcgd_doc_form(array $ds, string $pid): array
     } else {
         $cfg['ct_khoa'] = $cu['ct_khoa'] ?? [];
     }
+    // Mẫu CỐ ĐỊNH "Giống bản Sở": luôn khóa về bộ lọc chi tiết + đủ sheet,
+    // không cho xuất nhầm bộ "chỉ tiêu chính" hay "chi tiết từng tháng".
+    if ($pid === 'giong_so') {
+        $cfg['mau']            = 'chi_tiet';
+        $cfg['chi_tiet_thang'] = 0;
+        $cfg['toan_vien']      = 1;
+        $cfg['theo_so']        = 1;
+    }
     return bao_cao_gd_chuan($cfg);
 }
 
@@ -66,19 +75,24 @@ if (la_post()) {
     }
 
     $cfg = bcgd_doc_form($ds, $pid);
-    $coSan = false;
-    foreach ($ds as &$m) {
-        if ($m['id'] === $pid && $viec !== 'luu_moi') { $m['ten'] = $ten; $m['cfg'] = $cfg; $coSan = true; }
-    }
-    unset($m);
-    if (!$coSan) {                                   // tạo mẫu mới
-        $pid = uniqid('m');
-        $ds[] = ['id' => $pid, 'ten' => $ten, 'cfg' => $cfg];
-    }
-    bao_cao_gd_luu_ds($ds);
 
+    // Xuất: CHỈ xuất file, KHÔNG lưu mẫu (tránh đẻ ra mẫu rác mỗi lần bấm Xuất).
     if ($viec === 'xuat') { xuat_bao_cao_giam_doc($nam, $cfg); exit; }
-    nhan_tin('ok', 'Đã lưu mẫu "' . $ten . '".');
+
+    // Chỉ lưu khi bấm "Lưu mẫu này" / "Lưu thành mẫu mới".
+    if ($viec === 'luu' || $viec === 'luu_moi') {
+        $coSan = false;
+        foreach ($ds as &$m) {
+            if ($m['id'] === $pid && $viec !== 'luu_moi') { $m['ten'] = $ten; $m['cfg'] = $cfg; $coSan = true; }
+        }
+        unset($m);
+        if (!$coSan) {                               // tạo mẫu mới
+            $pid = uniqid('m');
+            $ds[] = ['id' => $pid, 'ten' => $ten, 'cfg' => $cfg];
+        }
+        bao_cao_gd_luu_ds($ds);
+        nhan_tin('ok', 'Đã lưu mẫu "' . $ten . '".');
+    }
     chuyen_huong('/bao-cao-gd.php?p=' . urlencode($pid) . '&nam=' . $nam);
 }
 
@@ -94,6 +108,7 @@ if ($laMoi) {
 }
 $cfg    = bao_cao_gd_chuan($mau['cfg']);
 $tenMau = $mau['ten'];
+$khoaCung = ($pid === 'giong_so');   // mẫu cố định "Giống bản Sở" → gọn UI, khóa bộ lọc
 
 $dsKhoa   = qAll('SELECT * FROM khoa WHERE hoat_dong = 1 ORDER BY thu_tu, ten');
 // Chỉ tiêu áp dụng cho từng khoa (theo cây, kèm cấp) — cho phần Custom theo khoa
@@ -127,18 +142,29 @@ mo_trang('Xuất báo cáo');
   <?= csrf_field() ?>
   <input type="hidden" name="p" value="<?= e($laMoi ? '' : $pid) ?>">
 
-  <label style="display:block;margin-bottom:14px">Tên mẫu
-    <input type="text" name="ten_mau" value="<?= e($tenMau) ?>" required placeholder="VD: Theo dõi đạt được từng tháng" style="width:100%;max-width:420px">
-  </label>
-
-  <div style="margin-bottom:16px;padding:12px 14px;background:var(--nen-nhe,#f8fafc);border:1px solid #bae6fd;border-radius:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-    <button type="button" class="nut nut-chinh" onclick="moChinhSuaTruong()">✏️ Chỉnh sửa trường theo khoa</button>
-    <span class="phu" style="flex:1;min-width:220px">Bấm để <strong>thêm / bớt từng trường</strong> (và trường con) cho <strong>từng khoa</strong> — mỗi khoa một sheet riêng.</span>
+  <!-- Thanh hành động trên cùng: tên mẫu + nút Xuất nổi bật -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:14px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--vien,#e2e8f0)">
+    <label style="flex:1;min-width:240px;margin:0">Tên mẫu
+      <input type="text" name="ten_mau" value="<?= e($tenMau) ?>" <?= $khoaCung?'readonly':'' ?> required placeholder="VD: Theo dõi đạt được từng tháng" style="width:100%;max-width:420px<?= $khoaCung?';background:var(--nen-nhe,#f8fafc)':'' ?>">
+    </label>
+    <button class="nut nut-chinh" type="submit" name="viec" value="xuat" style="font-size:15px;padding:11px 24px;white-space:nowrap">⬇ Xuất Excel</button>
   </div>
+
+  <?php if ($khoaCung): ?>
+    <div class="tb tb-ok" style="margin-bottom:16px">
+      📋 <strong>Mẫu cố định "Giống bản Sở"</strong> — tự dựng đúng khuôn QĐ33b (từng khoa) + QĐ74 (toàn viện), đủ chỉ tiêu. Chỉ cần chọn <strong>năm · kỳ · khoa</strong> rồi bấm <strong>Xuất Excel</strong>. Muốn mẫu tùy biến khác, bấm <a href="/bao-cao-gd.php?p=__new__&nam=<?= (int)$namMac ?>">Tạo mẫu mới</a>.
+    </div>
+  <?php else: ?>
+    <div style="margin-bottom:16px;padding:12px 14px;background:var(--nen-nhe,#f8fafc);border:1px solid #bae6fd;border-radius:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+      <button type="button" class="nut nut-chinh" onclick="moChinhSuaTruong()">✏️ Chỉnh sửa trường theo khoa</button>
+      <span class="phu" style="flex:1;min-width:220px">Bấm để <strong>thêm / bớt từng trường</strong> (và trường con) cho <strong>từng khoa</strong> — mỗi khoa một sheet riêng.</span>
+    </div>
+  <?php endif; ?>
 
   <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
   <div style="flex:1;min-width:340px">
 
+  <?php if (!$khoaCung): ?>
   <fieldset style="border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:12px;margin-bottom:14px">
     <legend style="font-weight:600;padding:0 6px">Lọc chỉ tiêu</legend>
     <?php $mauLoc = $cfg['mau'] ?? 'chi_tiet';
@@ -148,6 +174,7 @@ mo_trang('Xuất báo cáo');
       </label>
     <?php endforeach; ?>
   </fieldset>
+  <?php endif; ?>
 
   <fieldset style="border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:12px;margin-bottom:14px">
     <legend style="font-weight:600;padding:0 6px">Phạm vi &amp; tiêu đề</legend>
@@ -168,6 +195,7 @@ mo_trang('Xuất báo cáo');
     </label>
   </fieldset>
 
+  <?php if (!$khoaCung): ?>
   <fieldset style="border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:12px;margin-bottom:14px">
     <legend style="font-weight:600;padding:0 6px">Cột hiển thị</legend>
     <label class="o-chon" style="display:block;gap:6px;margin-bottom:8px;font-weight:600;padding:6px 8px;background:var(--nen-nhe,#f8fafc);border-radius:8px">
@@ -175,7 +203,7 @@ mo_trang('Xuất báo cáo');
       📅 Chi tiết từng tháng <small class="nhan-phu">(mẫu "Theo dõi đạt được": T1…T12 + lũy kế Quý/6 tháng/9 tháng/năm, mỗi khoa 1 sheet)</small>
     </label>
     <div id="cot-tong">
-    <?php $C=$cfg['cot']; foreach(['nam_truoc'=>'TH năm trước','chi_tieu'=>'Chỉ tiêu giao','ket_qua'=>'Kết quả đạt được','pt'=>'So KH (%)'] as $k=>$t): ?>
+    <?php $C=$cfg['cot']; foreach(['nam_truoc'=>'TH năm trước','chi_tieu_truoc'=>'Chỉ tiêu năm trước','chi_tieu'=>'Chỉ tiêu giao','ket_qua'=>'Kết quả đạt được','pt'=>'So KH (%)'] as $k=>$t): ?>
       <label class="o-chon" style="display:inline-flex;gap:6px;margin-right:18px">
         <input type="checkbox" name="cot[<?= $k ?>]" value="1" <?= !empty($C[$k])?'checked':'' ?>> <?= $t ?>
       </label>
@@ -183,6 +211,7 @@ mo_trang('Xuất báo cáo');
     <p class="phu" id="ghi-chu-thang" style="margin:6px 0 0;display:none">Khi bật <em>chi tiết từng tháng</em>: chỉ dùng <strong>TH năm trước</strong> và <strong>Chỉ tiêu giao</strong>; các cột còn lại thay bằng cột tháng. Ô "Kỳ" cũng bỏ qua (luôn xuất đủ 12 tháng).</p>
     </div>
   </fieldset>
+  <?php endif; ?>
 
   </div><!-- /cột trái -->
   <div style="flex:1;min-width:340px">
@@ -206,6 +235,7 @@ mo_trang('Xuất báo cáo');
   </div><!-- /cột phải -->
   </div><!-- /hai cột -->
 
+  <?php if (!$khoaCung): ?>
   <fieldset id="fs-ct" style="margin-top:4px;border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:12px">
     <legend style="font-weight:600;padding:0 6px">Chọn trường theo khoa <small class="nhan-phu">(chỉ dùng cho mẫu <strong>Custom</strong>)</small></legend>
     <p class="phu" style="margin:0 0 8px">Chọn khoa → tick những trường muốn hiện trong sheet của khoa đó. Mỗi khoa lưu riêng.</p>
@@ -235,12 +265,15 @@ mo_trang('Xuất báo cáo');
     </div>
     <?php endforeach; ?>
   </fieldset>
+  <?php endif; ?>
 
   <div class="form-chan" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--vien,#e2e8f0);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
     <button class="nut nut-chinh" type="submit" name="viec" value="xuat">⬇ Xuất Excel</button>
-    <button class="nut" type="submit" name="viec" value="luu">💾 Lưu mẫu này</button>
+    <?php if (!$khoaCung): ?>
+      <button class="nut" type="submit" name="viec" value="luu">💾 Lưu mẫu này</button>
+    <?php endif; ?>
     <button class="nut nut-phu" type="submit" name="viec" value="luu_moi">＋ Lưu thành mẫu mới</button>
-    <?php if (!$laMoi && count($ds) > 1): ?>
+    <?php if (!$khoaCung && !$laMoi && count($ds) > 1): ?>
       <button class="nut nut-nguy" type="submit" name="viec" value="xoa" style="margin-left:18px"
               data-xac-nhan="Xóa mẫu &quot;<?= e($tenMau) ?>&quot;?">🗑 Xóa mẫu</button>
     <?php endif; ?>
@@ -252,6 +285,7 @@ function capNhatMau(){
   if(!s) return;
   var custom = s.value==='custom';
   var fs=document.getElementById('fs-ct');
+  if(!fs) return;
   fs.style.opacity = custom?'1':'.5';
   fs.querySelectorAll('input,button,select').forEach(function(el){ el.disabled = !custom; });
   var goiy=document.getElementById('ct-goi-y');
@@ -263,8 +297,10 @@ function capNhatMau(){
   }
 }
 function capNhatThang(){
-  var on=document.querySelector('input[name=chi_tiet_thang]').checked;
-  document.getElementById('ghi-chu-thang').style.display = on?'block':'none';
+  var el=document.querySelector('input[name=chi_tiet_thang]');
+  if(!el) return;
+  var g=document.getElementById('ghi-chu-thang');
+  if(g) g.style.display = el.checked?'block':'none';
 }
 function capNhatKhoaCt(){
   var sel=document.getElementById('ct-khoa-sel'); if(!sel) return;

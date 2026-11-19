@@ -33,18 +33,20 @@ function bang_theo_khoa(int $nam, array $cacThang, int $idKhoa, string $goc = 'g
         $th = gia_tri_luy_ke($nam, $cacThang, $idKhoa, $ct['id']);
         $kh = chi_tieu_cua_ky($nam, $cacThang, $idKhoa, $ct['id'], $goc);
         $khNam = chi_tieu_cua_ky($nam, range(1, 12), $idKhoa, $ct['id'], $goc);
+        $khNamTruoc = chi_tieu_cua_ky($nam - 1, range(1, 12), $idKhoa, $ct['id'], $goc);
         $namTruoc = null;
         $r = ke_hoach_nam($nam, $idKhoa)[$ct['id']] ?? null;
         if ($r && $r['th_nam_truoc'] !== null) {
             $namTruoc = (float)$r['th_nam_truoc'];
         }
         $ds[] = [
-            'ct'           => $ct,
-            'cap'          => $ct['cap'],
-            'chi_tieu'     => $kh,
-            'chi_tieu_nam' => $khNam,
-            'thuc_hien'    => $th,
-            'nam_truoc'    => $namTruoc,
+            'ct'                 => $ct,
+            'cap'                => $ct['cap'],
+            'chi_tieu'           => $kh,
+            'chi_tieu_nam'       => $khNam,
+            'chi_tieu_nam_truoc' => $khNamTruoc,
+            'thuc_hien'          => $th,
+            'nam_truoc'          => $namTruoc,
             'kpi'          => danh_gia_kpi($ct, $th, $kh),
             'pt_nam'       => pt_so_ke_hoach_nam($th, $khNam),
         ];
@@ -65,8 +67,101 @@ const CHI_TIEU_LAY_O_KHOA_THUC_HIEN = [
     'DT' => 'CDHA', 'NS' => 'CDHA', 'DEXA' => 'CDHA',
 ];
 
+/** Map số toàn viện nhập tay của một năm: [id_chi_tieu => bản ghi so_toan_vien]. */
+function so_toan_vien_cua_nam(int $nam): array
+{
+    $out = [];
+    try {
+        foreach (qAll('SELECT * FROM so_toan_vien WHERE nam = ?', [$nam]) as $r) {
+            $out[(int)$r['id_chi_tieu']] = $r;
+        }
+    } catch (Throwable $e) { /* bảng chưa tạo (CSDL cũ) — bỏ qua, tự cộng như thường */ }
+    return $out;
+}
+
+/** Lưu/đặt số toàn viện nhập tay cho 1 chỉ tiêu (upsert). Rỗng cả 2 số = xoá (tự cộng lại). */
+function luu_so_toan_vien(int $nam, int $id, ?float $kh, ?float $th, ?string $ghiChu = null): void
+{
+    if ($kh === null && $th === null) { xoa_so_toan_vien($nam, $id); return; }
+    if (qVal('SELECT 1 FROM so_toan_vien WHERE nam = ? AND id_chi_tieu = ?', [$nam, $id])) {
+        q('UPDATE so_toan_vien SET chi_tieu_giao = ?, thuc_hien = ?, ghi_chu = ? WHERE nam = ? AND id_chi_tieu = ?',
+            [$kh, $th, $ghiChu, $nam, $id]);
+    } else {
+        q('INSERT INTO so_toan_vien (nam, id_chi_tieu, chi_tieu_giao, thuc_hien, ghi_chu) VALUES (?,?,?,?,?)',
+            [$nam, $id, $kh, $th, $ghiChu]);
+    }
+}
+
+function xoa_so_toan_vien(int $nam, int $id): void
+{
+    q('DELETE FROM so_toan_vien WHERE nam = ? AND id_chi_tieu = ?', [$nam, $id]);
+}
+
+/** Sửa MỘT ô (truong = 'kh' | 'th') cho số toàn viện nhập tay; giữ nguyên ô kia.
+ *  Giá trị null = bỏ nhập tay ô đó; cả hai null → xoá hẳn (quay về tự cộng). */
+function dat_so_toan_vien_o(int $nam, int $id, string $truong, ?float $gt): void
+{
+    $cot = $truong === 'kh' ? 'chi_tieu_giao' : 'thuc_hien';
+    if (qVal('SELECT 1 FROM so_toan_vien WHERE nam = ? AND id_chi_tieu = ?', [$nam, $id])) {
+        q("UPDATE so_toan_vien SET $cot = ? WHERE nam = ? AND id_chi_tieu = ?", [$gt, $nam, $id]);
+    } else {
+        $kh = $truong === 'kh' ? $gt : null;
+        $th = $truong === 'th' ? $gt : null;
+        q('INSERT INTO so_toan_vien (nam, id_chi_tieu, chi_tieu_giao, thuc_hien) VALUES (?,?,?,?)',
+            [$nam, $id, $kh, $th]);
+    }
+    $r = q1('SELECT chi_tieu_giao, thuc_hien FROM so_toan_vien WHERE nam = ? AND id_chi_tieu = ?', [$nam, $id]);
+    if ($r && $r['chi_tieu_giao'] === null && $r['thuc_hien'] === null) { xoa_so_toan_vien($nam, $id); }
+}
+
+/** Số toàn viện nhập tay theo THÁNG của 1 chỉ tiêu trong năm: [thang => gia_tri]. */
+function so_toan_vien_thang_cua_nam(int $nam, int $idCt): array
+{
+    $out = [];
+    try {
+        foreach (qAll('SELECT thang, gia_tri FROM so_toan_vien_thang WHERE nam = ? AND id_chi_tieu = ?',
+                [$nam, $idCt]) as $r) {
+            $out[(int)$r['thang']] = $r['gia_tri'] === null ? null : (float)$r['gia_tri'];
+        }
+    } catch (Throwable $e) { /* bảng chưa tạo — bỏ qua */ }
+    return $out;
+}
+
+/** Đặt/sửa số toàn viện nhập tay cho MỘT tháng; null hoặc rỗng = bỏ đè tháng đó. */
+function dat_so_toan_vien_thang(int $nam, int $thang, int $idCt, ?float $gt): void
+{
+    if ($gt === null) {
+        q('DELETE FROM so_toan_vien_thang WHERE nam=? AND thang=? AND id_chi_tieu=?', [$nam, $thang, $idCt]);
+        return;
+    }
+    if (qVal('SELECT 1 FROM so_toan_vien_thang WHERE nam=? AND thang=? AND id_chi_tieu=?', [$nam, $thang, $idCt])) {
+        q('UPDATE so_toan_vien_thang SET gia_tri=? WHERE nam=? AND thang=? AND id_chi_tieu=?', [$gt, $nam, $thang, $idCt]);
+    } else {
+        q('INSERT INTO so_toan_vien_thang (nam, thang, id_chi_tieu, gia_tri) VALUES (?,?,?,?)', [$nam, $thang, $idCt, $gt]);
+    }
+}
+
+/** Lũy kế tính TỪ chuỗi 12 tháng (để khớp với tháng đã đè). TY_LE/TRUNG_BINH trả null (không tự cộng). */
+function luy_ke_tu_chuoi(array $m, string $loai, array $rng): ?float
+{
+    if (in_array($loai, ['TY_LE', 'TRUNG_BINH'], true)) { return null; }
+    if ($loai === 'HANG_SO') {                       // số tồn: lấy tháng CÓ SỐ muộn nhất trong khoảng
+        for ($i = count($rng) - 1; $i >= 0; $i--) {
+            $t = $rng[$i];
+            if (isset($m[$t]) && $m[$t] !== null) { return (float)$m[$t]; }
+        }
+        return null;
+    }
+    $s = null;                                        // còn lại: cộng dồn
+    foreach ($rng as $t) {
+        if (isset($m[$t]) && $m[$t] !== null) { $s = ($s ?? 0) + (float)$m[$t]; }
+    }
+    return $s;
+}
+
 function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
 {
+    $STV = so_toan_vien_cua_nam($nam);   // số toàn viện nhập tay (nếu có)
     $dsKhoa = qAll('SELECT * FROM khoa WHERE hoat_dong = 1 ORDER BY thu_tu, ten');
     $idTheoMa = [];
     foreach ($dsKhoa as $k) {
@@ -117,25 +212,46 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
             $kh    = chi_tieu_toan_vien_cong_thuc($ct['ma']);
             $khNam = $kh;
         } else {
+            $nTh = 0; $nKh = 0; $nKhN = 0;   // đếm nguồn góp (để lấy trung bình khi gộp kiểu TB)
             foreach ($khoaCong as $idK) {
                 foreach ($idsCong as $idCT) {
                     $v = gia_tri_luy_ke($nam, $cacThang, $idK, $idCT);
                     if ($v !== null) {
-                        $th = ($th ?? 0) + $v;
+                        $th = ($th ?? 0) + $v; $nTh++;
                     }
                     $c = chi_tieu_cua_ky($nam, $cacThang, $idK, $idCT, $goc);
                     if ($c !== null) {
-                        $kh = ($kh ?? 0) + $c;
+                        $kh = ($kh ?? 0) + $c; $nKh++;
                     }
                     $cn = chi_tieu_cua_ky($nam, range(1, 12), $idK, $idCT, $goc);
                     if ($cn !== null) {
-                        $khNam = ($khNam ?? 0) + $cn;
+                        $khNam = ($khNam ?? 0) + $cn; $nKhN++;
                     }
                     $r = ke_hoach_nam($nam, $idK)[$idCT] ?? null;
                     if ($r && $r['th_nam_truoc'] !== null) {
                         $truoc = ($truoc ?? 0) + (float)$r['th_nam_truoc'];
                     }
                 }
+            }
+            // Nhóm gộp kiểu TRUNG BÌNH → lấy trung bình các nguồn thay vì cộng tổng.
+            if ($ct['loai_gia_tri'] === 'TRUNG_BINH') {
+                if ($nTh  > 1 && $th    !== null) { $th    = $th    / $nTh; }
+                if ($nKh  > 1 && $kh    !== null) { $kh    = $kh    / $nKh; }
+                if ($nKhN > 1 && $khNam !== null) { $khNam = $khNam / $nKhN; }
+            }
+        }
+
+        // Số TOÀN VIỆN nhập tay (nếu có): đè phép cộng khoa. Giữ lại số "máy cộng"
+        // để hiển thị đối chiếu. KH kỳ = KH năm cho dòng nhập tay (không chia nhỏ).
+        $tay = $STV[(int)$ct['id']] ?? null;
+        $thMay = $th; $khMay = $khNam;
+        if ($tay !== null) {
+            if ($tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') {
+                $khNam = (float)$tay['chi_tieu_giao'];
+                $kh    = (float)$tay['chi_tieu_giao'];
+            }
+            if ($tay['thuc_hien'] !== null && $tay['thuc_hien'] !== '') {
+                $th = (float)$tay['thuc_hien'];
             }
         }
 
@@ -148,6 +264,10 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
             'nam_truoc'    => $truoc,
             'kpi'          => danh_gia_kpi($ct, $th, $kh),
             'pt_nam'       => pt_so_ke_hoach_nam($th, $khNam),
+            'tay'          => $tay !== null,          // dòng số toàn viện nhập tay
+            'may_cong_th'  => $thMay,                 // số máy cộng (để đối chiếu)
+            'may_cong_kh'  => $khMay,
+            'tay_ghi_chu'  => $tay['ghi_chu'] ?? null,
         ];
     }
     return $ds;
@@ -205,6 +325,12 @@ function tri_chi_tieu(int $nam, array $cacThang, ?int $idKhoa, string $ma,
             }
         }
     }
+    // Số toàn viện nhập tay: đè phép cộng khoa (nhất quán với báo cáo & dashboard).
+    $tay = so_toan_vien_cua_nam($nam)[(int)$ct['id']] ?? null;
+    if ($tay) {
+        if ($tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') { $kh = (float)$tay['chi_tieu_giao']; }
+        if ($tay['thuc_hien']     !== null && $tay['thuc_hien']     !== '') { $th = (float)$tay['thuc_hien']; }
+    }
     return ['th' => $th, 'kh_nam' => $kh];
 }
 
@@ -251,6 +377,10 @@ function chuoi_12_thang(int $nam, ?int $idKhoa, string $maChiTieu): array
             }
         }
         $kq[$t] = $tong;
+    }
+    // Số toàn viện nhập tay theo THÁNG: đè phép cộng khoa của đúng tháng đó.
+    foreach (so_toan_vien_thang_cua_nam($nam, (int)$ct['id']) as $t => $gt) {
+        $kq[$t] = $gt;
     }
     return $kq;
 }
