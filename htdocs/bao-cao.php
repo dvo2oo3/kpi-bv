@@ -344,7 +344,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   .nhan-tyle{background:#f3e8ff;color:#6b21a8;border:1px solid #d8b4fe}
   tr.dong-ton>td:first-child{box-shadow:inset 3px 0 0 #38bdf8}
 </style>
-<p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế Quý I / 6 tháng / 9 tháng / Cả năm — để đối chiếu bảng Excel.
+<p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế 3T / 6T / 9T / 12T (hết Quý I / 6 tháng / 9 tháng / cả năm) — để đối chiếu bảng Excel.
   Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.</p>
 <div class="cuon-ngang">
 <table class="bang bang-12t" style="font-size:12.5px">
@@ -355,13 +355,13 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       <th>ĐVT</th>
       <th class="phai">KH năm</th>
       <th class="phai">T1</th><th class="phai">T2</th><th class="phai">T3</th>
-      <th class="phai" style="background:#fef3c7">Quý I</th>
+      <th class="phai" style="background:#fef3c7" title="Lũy kế 3 tháng (hết Quý I)">3T</th>
       <th class="phai">T4</th><th class="phai">T5</th><th class="phai">T6</th>
-      <th class="phai" style="background:#fef3c7">6T</th>
+      <th class="phai" style="background:#fef3c7" title="Lũy kế 6 tháng">6T</th>
       <th class="phai">T7</th><th class="phai">T8</th><th class="phai">T9</th>
-      <th class="phai" style="background:#fef3c7">9T</th>
+      <th class="phai" style="background:#fef3c7" title="Lũy kế 9 tháng">9T</th>
       <th class="phai">T10</th><th class="phai">T11</th><th class="phai">T12</th>
-      <th class="phai" style="background:#fde68a">Cả năm</th>
+      <th class="phai" style="background:#fde68a" title="Lũy kế cả năm (12 tháng)">12T</th>
     </tr>
   </thead>
   <tbody>

@@ -7,6 +7,18 @@
  */
 
 /**
+ * Làm tròn số cho ô Excel ĐÚNG số lẻ mà ô sẽ hiển thị — tránh "làm tròn 2 lần".
+ * Nếu ghi round(5.149, 2) = 5.15 vào ô định dạng #,##0.0 thì Excel lại làm tròn
+ * 5.15 → 5.2 (trong khi web number_format(5.149, 1) = 5.1). Round thẳng về đúng
+ * bậc của ô: so/lk = 0 lẻ, so1/lk1/pt = 1 lẻ.
+ */
+function gd_so_o($v, string $sty): string
+{
+    static $dp = ['so' => 0, 'lk' => 0, 'so1' => 1, 'lk1' => 1, 'pt' => 1];
+    return (string) round((float) $v, $dp[$sty] ?? 2);
+}
+
+/**
  * Bộ "chỉ tiêu chính" — bám theo mẫu "Theo dõi chỉ tiêu các khoa đạt được":
  * các chỉ tiêu QĐ 74 + chi tiết xét nghiệm, KHÔNG có các dòng con nhỏ
  * (BH/viện phí, khỏi/đỡ, chuyển viện chi tiết…). Mỗi khoa chỉ hiện phần được gán.
@@ -256,9 +268,9 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
       <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $cap74 ? '' : $stt74 ?></Data></Cell>
       <Cell ss:StyleID="<?= $cap74 ? 'con' : 'cha' ?>"><Data ss:Type="String"><?= $x($ten74) ?></Data></Cell>
       <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($dv74) ?></Data></Cell>
-      <?php if ($dRow && $dRow['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= round($dRow['chi_tieu_nam'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
-      <?php if ($dRow && $dRow['thuc_hien'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= round($dRow['thuc_hien'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
-      <?php if ($dRow && $dRow['pt_nam'] !== null): ?><Cell ss:StyleID="pt"><Data ss:Type="Number"><?= round($dRow['pt_nam'], 2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="pt"/><?php endif; ?>
+      <?php if ($dRow && $dRow['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= gd_so_o($dRow['chi_tieu_nam'], $k74) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
+      <?php if ($dRow && $dRow['thuc_hien'] !== null): ?><Cell ss:StyleID="<?= $k74 ?>"><Data ss:Type="Number"><?= gd_so_o($dRow['thuc_hien'], $k74) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $k74 ?>"/><?php endif; ?>
+      <?php if ($dRow && $dRow['pt_nam'] !== null): ?><Cell ss:StyleID="pt"><Data ss:Type="Number"><?= gd_so_o($dRow['pt_nam'], 'pt') ?></Data></Cell><?php else: ?><Cell ss:StyleID="pt"/><?php endif; ?>
     </Row>
   <?php endforeach; ?>
 </Table>
@@ -315,23 +327,23 @@ function xuat_bao_cao_giam_doc(int $nam, array $cfg): void
     <Cell ss:StyleID="<?= $laCon ? 'con' : 'cha' ?>"><Data ss:Type="String"><?= $x($d['ct']['ten']) ?></Data></Cell>
     <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($d['ct']['don_vi']) ?></Data></Cell>
     <?php if ($colTH): ?>
-      <?php if ($d['nam_truoc'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['nam_truoc'], 2) ?></Data></Cell>
+      <?php if ($d['nam_truoc'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['nam_truoc'], $kSo) ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
     <?php endif; ?>
     <?php if ($colCT): ?>
-      <?php if (($d['chi_tieu_nam_truoc'] ?? null) !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['chi_tieu_nam_truoc'], 2) ?></Data></Cell>
+      <?php if (($d['chi_tieu_nam_truoc'] ?? null) !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['chi_tieu_nam_truoc'], $kSo) ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
     <?php endif; ?>
     <?php if ($colKH): ?>
-      <?php if ($d['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['chi_tieu_nam'], 2) ?></Data></Cell>
+      <?php if ($d['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['chi_tieu_nam'], $kSo) ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
     <?php endif; ?>
     <?php if ($colKQ): ?>
-      <?php if ($d['thuc_hien'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['thuc_hien'], 2) ?></Data></Cell>
+      <?php if ($d['thuc_hien'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['thuc_hien'], $kSo) ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?>
     <?php endif; ?>
     <?php if ($colPT): ?>
-      <?php if ($d['pt_nam'] !== null): ?><Cell ss:StyleID="pt"><Data ss:Type="Number"><?= round($d['pt_nam'], 2) ?></Data></Cell>
+      <?php if ($d['pt_nam'] !== null): ?><Cell ss:StyleID="pt"><Data ss:Type="Number"><?= gd_so_o($d['pt_nam'], 'pt') ?></Data></Cell>
       <?php else: ?><Cell ss:StyleID="pt"/><?php endif; ?>
     <?php endif; ?>
   </Row>
@@ -374,7 +386,7 @@ function xuat_bao_cao_theo_so(int $nam, array $cfg): void
     // Ô số: trả Cell có số, hoặc Cell rỗng (để nhập tay).
     $oSo = function ($v, string $kSo) {
         if ($v === null || $v === '') { return '<Cell ss:StyleID="' . $kSo . '"/>'; }
-        return '<Cell ss:StyleID="' . $kSo . '"><Data ss:Type="Number">' . round((float)$v, 2) . '</Data></Cell>';
+        return '<Cell ss:StyleID="' . $kSo . '"><Data ss:Type="Number">' . gd_so_o($v, $kSo) . '</Data></Cell>';
     };
 
     echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
@@ -668,12 +680,12 @@ function xuat_bao_cao_gd_thang(int $nam, array $cfg): void
     <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $laCon ? '' : $stt ?></Data></Cell>
     <Cell ss:StyleID="<?= $laCon ? 'con' : 'cha' ?>"><Data ss:Type="String"><?= $x($d['ct']['ten']) ?></Data></Cell>
     <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($d['ct']['don_vi']) ?></Data></Cell>
-    <?php if ($colTH): ?><?php if ($d['nam_truoc'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['nam_truoc'],2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?><?php endif; ?>
-    <?php if ($colKH): ?><?php if ($d['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= round($d['chi_tieu_nam'],2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?><?php endif; ?>
+    <?php if ($colTH): ?><?php if ($d['nam_truoc'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['nam_truoc'], $kSo) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?><?php endif; ?>
+    <?php if ($colKH): ?><?php if ($d['chi_tieu_nam'] !== null): ?><Cell ss:StyleID="<?= $kSo ?>"><Data ss:Type="Number"><?= gd_so_o($d['chi_tieu_nam'], $kSo) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $kSo ?>"/><?php endif; ?><?php endif; ?>
     <?php foreach ($seq as $sp):
         $gt = $sp[0] === 'm' ? ($v['m'][$sp[1]] ?? null) : ($v['c'][$sp[1]] ?? null);
         $st = $sp[0] === 'm' ? $kSo : $kLk; ?>
-      <?php if ($gt !== null): ?><Cell ss:StyleID="<?= $st ?>"><Data ss:Type="Number"><?= round($gt,2) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $st ?>"/><?php endif; ?>
+      <?php if ($gt !== null): ?><Cell ss:StyleID="<?= $st ?>"><Data ss:Type="Number"><?= gd_so_o($gt, $st) ?></Data></Cell><?php else: ?><Cell ss:StyleID="<?= $st ?>"/><?php endif; ?>
     <?php endforeach; ?>
   </Row>
 <?php endforeach; ?>

@@ -1640,6 +1640,25 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
   margin-bottom: 24px;
 }
 
+/* Bảng 12 tháng rất rộng → cố định 2 cột đầu (STT + Nội dung) và hàng tiêu đề
+   khi cuộn, để luôn nhìn thấy tên chỉ tiêu và đầu cột.
+   Dùng !important vì .bc-stt và .bang thead th đã đặt position:relative. */
+.bang-12t thead th { position: sticky !important; top: 0; z-index: 3; }
+.bang-12t th:first-child,
+.bang-12t td:first-child { position: sticky !important; left: 0; z-index: 2; }
+.bang-12t th:nth-child(2),
+.bang-12t td:nth-child(2) { position: sticky !important; left: 42px; z-index: 2;
+  box-shadow: 6px 0 6px -6px rgba(15, 23, 42, .18); }
+.bang-12t thead th:first-child,
+.bang-12t thead th:nth-child(2) { z-index: 4; }
+/* Ô thân + header của 2 cột neo cần nền đục để chữ cột tháng không lộ ra khi cuộn. */
+.bang-12t tbody td:first-child,
+.bang-12t tbody td:nth-child(2) { background: var(--the); }
+.bang-12t thead th:first-child,
+.bang-12t thead th:nth-child(2) { background: #f8fafc; }
+html[data-theme="dark"] .bang-12t thead th:first-child,
+html[data-theme="dark"] .bang-12t thead th:nth-child(2) { background: #0f1826; }
+
 .bang {
   width: 100%;
   border-collapse: separate;
