@@ -613,7 +613,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   <span id="bc-gop-dem">Đã chọn 0 dòng</span>
   <button type="button" class="nut nut-nho" id="bc-gop-mo">Gộp</button>
   <button type="button" class="nut nut-nho" id="bc-an">Ẩn</button>
-  <button type="button" class="nut nut-nho" id="bc-xuat">Xuất CSV</button>
+  <button type="button" class="nut nut-nho" id="bc-xuat">Xuất Excel</button>
   <button type="button" class="nut nut-nho nut-phu" id="bc-gop-clear">Bỏ chọn</button>
 </div>
 <div id="bc-an-undo" hidden>
@@ -678,19 +678,60 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
     bar.hidden = n < 1;
   }
   function cellText(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); }
-  function csvCell(s) { return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
-  function xuatCsv() {
+  function xmlEsc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  /* Nhận diện ô SỐ (đếm/thập phân kiểu VN) để xuất thành số thật (căn phải, cộng được),
+     bỏ qua ô có % / chữ / dấu "—". */
+  function soCell(t) {
+    if (!/^(\d{1,3}(\.\d{3})*|\d+)(,\d+)?$/.test(t)) { return null; }
+    var val = parseFloat(t.replace(/\./g, '').replace(',', '.'));
+    if (!isFinite(val)) { return null; }
+    return { val: val, sty: t.indexOf(',') >= 0 ? 'so1' : 'so' };
+  }
+  function xuatExcel() {
     var ds = daChon(); if (!ds.length) { return; }
     var table = ds[0].closest('table'); if (!table) { return; }
     var head = Array.prototype.slice.call(table.querySelectorAll('thead th')).slice(1).map(cellText);
     var rows = ds.map(function (c) {
       return Array.prototype.slice.call(c.closest('tr').children).slice(1).map(cellText);
     });
-    var csv = [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
-    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    var nc = head.length;
+    var vien = '<Borders>'
+      + '<Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+      + '<Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+      + '<Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/>'
+      + '<Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#94A3B8"/></Borders>';
+    var xml = '<' + '?xml version="1.0"?' + '>'
+      + '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+      + '<Styles>'
+      + '<Style ss:ID="tieu"><Font ss:Bold="1" ss:Size="13"/></Style>'
+      + '<Style ss:ID="dau"><Font ss:Bold="1" ss:Color="#1E293B"/><Interior ss:Color="#DBEAFE" ss:Pattern="Solid"/>'
+      + '<Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>' + vien + '</Style>'
+      + '<Style ss:ID="ten"><Alignment ss:Vertical="Center" ss:WrapText="1"/>' + vien + '</Style>'
+      + '<Style ss:ID="so"><NumberFormat ss:Format="#,##0"/><Alignment ss:Horizontal="Right" ss:Vertical="Center"/>' + vien + '</Style>'
+      + '<Style ss:ID="so1"><NumberFormat ss:Format="#,##0.0"/><Alignment ss:Horizontal="Right" ss:Vertical="Center"/>' + vien + '</Style>'
+      + '</Styles><Worksheet ss:Name="Đã chọn"><Table>';
+    xml += '<Column ss:Width="250"/>';
+    for (var i = 1; i < nc; i++) { xml += '<Column ss:Width="86"/>'; }
+    xml += '<Row ss:Height="22"><Cell ss:StyleID="tieu" ss:MergeAcross="' + (nc - 1) + '">'
+      + '<Data ss:Type="String">Báo cáo — ' + ds.length + ' dòng đã chọn · ' + xmlEsc(new Date().toLocaleDateString('vi-VN')) + '</Data></Cell></Row><Row/>';
+    xml += '<Row ss:Height="26">';
+    head.forEach(function (h) { xml += '<Cell ss:StyleID="dau"><Data ss:Type="String">' + xmlEsc(h) + '</Data></Cell>'; });
+    xml += '</Row>';
+    rows.forEach(function (r) {
+      xml += '<Row>';
+      r.forEach(function (v) {
+        if (v === '' || v === '—') { xml += '<Cell ss:StyleID="ten"/>'; return; }
+        var n = soCell(v);
+        if (n) { xml += '<Cell ss:StyleID="' + n.sty + '"><Data ss:Type="Number">' + n.val + '</Data></Cell>'; }
+        else { xml += '<Cell ss:StyleID="ten"><Data ss:Type="String">' + xmlEsc(v) + '</Data></Cell>'; }
+      });
+      xml += '</Row>';
+    });
+    xml += '</Table></Worksheet></Workbook>';
+    var blob = new Blob(['﻿' + xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = 'bao-cao-da-chon.csv';
+    a.href = url; a.download = 'bao-cao-da-chon.xls';
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
@@ -708,7 +749,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       document.querySelectorAll('tr.bc-hidden').forEach(function (tr) { tr.classList.remove('bc-hidden'); });
       capNhatUndo(); return;
     }
-    if (e.target.id === 'bc-xuat') { xuatCsv(); return; }
+    if (e.target.id === 'bc-xuat') { xuatExcel(); return; }
     if (e.target.id === 'bc-gop-mo') {
       var ds = daChon(); if (ds.length < 2) { return; }
       var html = '';
