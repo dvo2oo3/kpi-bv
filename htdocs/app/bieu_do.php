@@ -79,7 +79,7 @@ function bieu_do_duong(array $giaTri, string $donVi = '', int $le = 0, bool $nha
         $svg .= '<polygon points="' . round($d[0][0], 1) . ',' . ($C - 1) . ' '
               . $duong . ' ' . round(end($d)[0], 1) . ',' . ($C - 1)
               . '" fill="url(#' . $gid . ')"/>';
-        $svg .= '<polyline points="' . $duong . '" fill="none" stroke="' . MAU_NET
+        $svg .= '<polyline class="bd-duong" points="' . $duong . '" fill="none" stroke="' . MAU_NET
               . '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"'
               . ' vector-effect="non-scaling-stroke"/>';
     }

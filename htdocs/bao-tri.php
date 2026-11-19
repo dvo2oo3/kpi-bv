@@ -42,9 +42,9 @@ $choPhep = bao_tri_cho_phep();
 $loiNhan = (string)(cai_dat_lay('bao_tri_loi_nhan') ?? '');
 
 $nhanTrangThai = [
-    0 => '✅ Đang hoạt động bình thường',
-    1 => '🛠️ ĐANG BẢO TRÌ THƯỜNG (admin/dev + tài khoản được chọn vào được)',
-    2 => '🔒 ĐANG KHÓA CỨNG (chỉ dev vào được)',
+    0 => 'Đang hoạt động bình thường',
+    1 => 'ĐANG BẢO TRÌ THƯỜNG (admin/dev + tài khoản được chọn vào được)',
+    2 => 'ĐANG KHÓA CỨNG (chỉ dev vào được)',
 ];
 
 mo_trang('Bảo trì hệ thống');
@@ -109,7 +109,7 @@ mo_trang('Bảo trì hệ thống');
     <div class="form-chan" style="margin-top:14px">
       <button class="nut nut-chinh" type="submit"
               data-xac-nhan="Lưu cấu hình bảo trì?&#10;Người dùng bị chặn sẽ thấy màn bảo trì ngay."
-              data-xac-nhan-loai="nguy">💾 Lưu cấu hình bảo trì</button>
+              data-xac-nhan-loai="nguy"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/><path d="M8 13h8v7"/></svg>Lưu cấu hình bảo trì</button>
       <a class="nut nut-phu" href="/">Hủy</a>
     </div>
   </form>

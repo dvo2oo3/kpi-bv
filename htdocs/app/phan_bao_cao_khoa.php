@@ -139,4 +139,25 @@
 <?php else: ?>
 <p class="phu">Khoa chưa có số liệu kỳ này.</p>
 <?php endif; ?>
+<?php if ($theDuong): ?>
+<script>
+/* Vẽ dần đường "Diễn biến 12 tháng" khi khối xuất hiện (đổi khoa → reload → chạy lại). */
+(function () {
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { return; }
+  requestAnimationFrame(function () {
+    document.querySelectorAll('.bd-duong').forEach(function (p) {
+      try {
+        var len = p.getTotalLength();
+        p.style.transition = 'none';
+        p.style.strokeDasharray = len;
+        p.style.strokeDashoffset = len;
+        p.getBoundingClientRect();        // ép reflow để tránh nháy
+        p.style.transition = '';          // trả lại transition từ CSS
+        requestAnimationFrame(function () { p.style.strokeDashoffset = '0'; });
+      } catch (e) {}
+    });
+  });
+})();
+</script>
+<?php endif; ?>
 <?php endif; /* khoaBC */ ?>

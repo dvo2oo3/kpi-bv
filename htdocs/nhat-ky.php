@@ -50,7 +50,7 @@ mo_trang('Nhật ký hệ thống');
   <input type="hidden" name="viec" value="don_log">
   <button class="nut nut-nho nut-phu" type="submit"
           data-xac-nhan="Dọn các dòng nhật ký cũ hơn <?= (int)$giuNgay ?> ngày?"
-          data-xac-nhan-loai="nguy">🧹 Dọn log cũ hơn <?= (int)$giuNgay ?> ngày</button>
+          data-xac-nhan-loai="nguy">Dọn log cũ hơn <?= (int)$giuNgay ?> ngày</button>
 </form>
 <?php endif; ?>
 

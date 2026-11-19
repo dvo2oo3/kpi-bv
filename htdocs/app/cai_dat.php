@@ -196,7 +196,7 @@ function trang_bao_tri(): void
         . '</style></head><body><div class="bt-hop">'
         . $hieu
         . ($tenDv !== '' ? '<div class="bt-dv">' . e($tenDv) . '</div>' : '')
-        . '<div class="bt-icon">🛠️</div>'
+        . '<div class="bt-icon"><svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a3.7 3.7 0 0 0-4.9 4.6L3 17.7 6.3 21l6.8-6.8a3.7 3.7 0 0 0 4.6-4.9l-2.4 2.4-1.9-1.9z"/></svg></div>'
         . '<h1>Hệ thống đang bảo trì</h1>'
         . '<p>' . nl2br(e(bao_tri_loi_nhan())) . '</p>'
         . '<a class="bt-nut" href="/dang-xuat.php">Đăng xuất</a>'

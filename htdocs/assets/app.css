@@ -1518,14 +1518,55 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
 .cs-so { font-weight: 700; font-size: 12.5px; }
 .cs-ranh {
   flex: 1;
-  height: 6px;
+  height: 8px;
   background: var(--vien-nhat);
   border-radius: 999px;
   position: relative;
-  min-width: 50px;
+  min-width: 56px;
   overflow: hidden;
 }
-.cs-day { height: 100%; background: var(--xanh-500); border-radius: 999px; }
+/* Fill = công suất THỰC HIỆN, dài đúng theo % (0–100% chiều rộng). Teal sáng cho nổi rõ. */
+.cs-day { display: block; height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, #2dd4bf 0%, #5eead4 100%); }
+/* Vượt mức mong muốn 100% → đổ tím cảnh báo quá tải. */
+.cs-day-vuot { background: linear-gradient(90deg, #a78bfa 0%, #c4b5fd 100%); }
+
+/* Lịch mở kỳ — cụm nút thao tác xếp NGANG cho dòng gọn (hết cảnh dòng cao lênh khênh) */
+.lk-nut { display: flex; flex-wrap: wrap; gap: 6px; align-items: flex-start; }
+.lk-nut > form { margin: 0; }
+.thao-tac .lk-nut details { width: auto; }
+.thao-tac .lk-nut details[open] { width: 260px; max-width: 100%; }
+
+/* Thư viện — cột Thao tác: các nút NGANG một hàng (cột rộng nên đủ chỗ), gọn, không phình dòng.
+   LƯU Ý: không đặt display:flex thẳng lên <td> — td phải giữ table-cell, nếu không viền/kẻ bị vỡ. */
+.tt-hang { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.tt-hang > form { margin: 0; }
+
+/* ===== Hiệu ứng XUẤT HIỆN cho khối báo cáo theo khoa (donut, biểu đồ, gauge, bảng) ===== */
+@keyframes bc-vao { from { opacity: 0; transform: translateY(14px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes bc-gauge-ve { from { stroke-dashoffset: 125.66; } to { stroke-dashoffset: 0; } }
+.the-vong, .khung-bd, .khung-gauge { animation: bc-vao .55s cubic-bezier(.16,1,.3,1) both; }
+.luoi-vong .the-vong:nth-child(1) { animation-delay: .03s; }
+.luoi-vong .the-vong:nth-child(2) { animation-delay: .09s; }
+.luoi-vong .the-vong:nth-child(3) { animation-delay: .15s; }
+.luoi-vong .the-vong:nth-child(4) { animation-delay: .21s; }
+.luoi-bd .khung-bd   { animation-delay: .14s; }
+.luoi-bd .khung-gauge{ animation-delay: .22s; }
+/* Gauge: cung vẽ dần từ trái; kim mờ hiện sau */
+.khung-gauge .gauge-day { animation: bc-gauge-ve 1s cubic-bezier(.33,1,.68,1) .3s both; }
+.khung-gauge .gauge-kim, .khung-gauge .gauge-tam { animation: bc-vao .5s ease 1.05s both; }
+/* Bảng chỉ tiêu khoa: các dòng hiện lần lượt */
+.bang-bc tbody tr { animation: bc-vao .45s cubic-bezier(.16,1,.3,1) both; }
+.bang-bc tbody tr:nth-child(1){animation-delay:.18s} .bang-bc tbody tr:nth-child(2){animation-delay:.24s}
+.bang-bc tbody tr:nth-child(3){animation-delay:.30s} .bang-bc tbody tr:nth-child(4){animation-delay:.36s}
+.bang-bc tbody tr:nth-child(5){animation-delay:.42s} .bang-bc tbody tr:nth-child(6){animation-delay:.48s}
+.bang-bc tbody tr:nth-child(7){animation-delay:.54s} .bang-bc tbody tr:nth-child(n+8){animation-delay:.6s}
+/* Đường biểu đồ: vẽ dần (JS set stroke-dasharray theo độ dài thật) */
+.bd-duong { transition: stroke-dashoffset 1.1s cubic-bezier(.33,1,.68,1) .2s; }
+@media (prefers-reduced-motion: reduce) {
+  .the-vong, .khung-bd, .khung-gauge, .gauge-day, .gauge-kim, .gauge-tam, .bang-bc tbody tr { animation: none !important; }
+  .bd-duong { transition: none !important; stroke-dashoffset: 0 !important; }
+}
 
 .dai-thang {
   display: inline-flex;
@@ -1607,37 +1648,62 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
   text-align: left;
 }
 
+/* Header nhạt, in hoa, chữ xám — neo cột mà không "nặng" như Excel. Bỏ kẻ dọc. */
 .bang th {
-  background: #f1f5f9;
-  color: var(--xanh-900);
-  font-weight: 700;
-  padding: 10px 12px;
-  border-bottom: 2px solid var(--vien);
-  border-right: 1px solid var(--vien-nhat);
+  background: #f8fafc;
+  color: var(--chu-3);
+  font-weight: 600;
+  font-size: 11.5px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--vien);
   white-space: nowrap;
   position: sticky;
   top: 0;
   z-index: 10;
 }
-.bang th:last-child { border-right: none; }
 
 .bang td {
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--vien-nhat);
-  border-right: 1px solid var(--vien-nhat);
   color: var(--chu-2);
-  vertical-align: middle;
+  vertical-align: top;   /* số luôn nằm cùng dòng đầu của tên → thẳng hàng khi tên xuống 2 dòng */
 }
-.bang td:last-child { border-right: none; }
 
-/* Zebra Striping */
-.bang tbody tr:nth-child(even) td { background: #f8fafc; }
-.bang tbody tr:nth-child(odd) td  { background: #ffffff; }
-
+/* Không kẻ ô dọc. Sọc ngựa vằn RẤT nhạt để mắt dò ngang theo dòng trên bảng rộng. */
+.bang tbody tr:nth-child(even) td { background: #f7f9fc; }
 .bang tbody tr:hover td {
-  background: #e0f2fe !important;
+  background: #eef6fd !important;
   color: var(--xanh-900);
 }
+
+/* Ô STT (báo cáo): ô tick + số luôn nằm 1 dòng, canh đỉnh → STT thẳng với dòng tên đầu. */
+.bc-stt { white-space: nowrap; }
+.bc-stt input[type=checkbox] { vertical-align: middle; margin: 0 3px 0 0; }
+.bc-stt .bc-num { vertical-align: middle; }
+
+/* STT ở MỌI bảng báo cáo (trừ chế độ kéo-sắp-xếp có hover riêng): số dạng CHIP bo
+   tròn mờ; ô tick ẩn, chỉ hiện khi rê chuột vào dòng; dòng con để trống. */
+.bang:not(.bang-sapxep) .bc-stt { position: relative; white-space: nowrap; }
+.bang:not(.bang-sapxep) .bc-stt .bc-num {
+  display: inline-block; min-width: 22px; padding: 2px 8px;
+  border-radius: 999px; background: #eef2f7; color: #64748b;
+  font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.5;
+}
+.bang:not(.bang-sapxep) .bc-stt .bc-num:empty { background: transparent; padding: 0; }   /* dòng con: không chip */
+.bang:not(.bang-sapxep) .bc-stt .bc-gop-chk {
+  position: absolute; left: 50%; top: 19px; transform: translate(-50%, -50%);
+  margin: 0; visibility: hidden;
+}
+.bang:not(.bang-sapxep) tbody tr:hover .bc-num    { visibility: hidden; }
+.bang:not(.bang-sapxep) tbody tr:hover .bc-gop-chk { visibility: visible; }
+html[data-theme="dark"] .bang:not(.bang-sapxep) .bc-stt .bc-num { background: #1e2a3d; color: #9fb0c8; }
+/* Đã tích: ô tick LUÔN hiện + ẩn chip + cả hàng tô nền nhẹ → nhận ra ngay dòng đang chọn. */
+.bang:not(.bang-sapxep) .bc-stt .bc-gop-chk:checked { visibility: visible; }
+.bang:not(.bang-sapxep) .bc-stt:has(.bc-gop-chk:checked) .bc-num { visibility: hidden; }
+.bang:not(.bang-sapxep) tbody tr:has(.bc-gop-chk:checked) td { background: #e0f2fe !important; color: var(--xanh-900); }
+html[data-theme="dark"] .bang:not(.bang-sapxep) tbody tr:has(.bc-gop-chk:checked) td { background: #17304d !important; color: #fff; }
 
 .bang .dong-tong td {
   background: #f1f5f9 !important;
@@ -3096,11 +3162,12 @@ html[data-theme="dark"] select {
   background-size: 15px;
 }
 /* Bảng */
-html[data-theme="dark"] .bang th { background: #1b2740; color: var(--chu); border-color: var(--vien); }
+html[data-theme="dark"] .bang th { background: #0f1826; color: var(--chu-3); border-color: var(--vien); }
 html[data-theme="dark"] .bang td { color: var(--chu-2); border-color: var(--vien-nhat); }
-html[data-theme="dark"] .bang tbody tr:nth-child(even) td { background: #141d2d; }
-html[data-theme="dark"] .bang tbody tr:nth-child(odd) td  { background: #121a28; }
-html[data-theme="dark"] .bang tbody tr:hover td { background: #1d3350 !important; color: #fff; }
+/* Sọc ngựa vằn rất nhạt ở dark giúp dò dòng trên bảng rộng (dòng đặc biệt vẫn giữ nền riêng). */
+html[data-theme="dark"] .bang tbody tr:nth-child(odd) td  { background: transparent; }
+html[data-theme="dark"] .bang tbody tr:nth-child(even) td { background: #182230; }
+html[data-theme="dark"] .bang tbody tr:hover td { background: #1d2c43 !important; color: #fff; }
 html[data-theme="dark"] .bang .dong-tong td,
 html[data-theme="dark"] .bang .dong-nhom td { background: #1b2740 !important; color: var(--chu); }
 /* Nút trung tính (giữ nguyên nút gradient chính) */

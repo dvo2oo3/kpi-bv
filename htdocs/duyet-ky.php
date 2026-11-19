@@ -278,7 +278,7 @@ if ($choDuyet): ?>
 
 <?php if ($choMoLai): ?>
 <div class="tb tb-canh-bao">
-  <strong>⚠ <?= count($choMoLai) ?> khoa yêu cầu mở lại để sửa</strong> — bấm để tới đúng tháng rồi bấm “Mở lại”:
+  <strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> <?= count($choMoLai) ?> khoa yêu cầu mở lại để sửa</strong> — bấm để tới đúng tháng rồi bấm “Mở lại”:
   <div class="ds-cho-nop">
     <?php foreach ($choMoLai as $c):
         $chon = (int)$c['nam'] === $nam && (int)$c['thang'] === $thang; ?>
@@ -316,7 +316,7 @@ if ($choDuyet): ?>
     <tr>
       <td><strong class="ten-khoa"><?= e($k['ten']) ?></strong><br><small class="ma-khoa"><?= e($k['ma']) ?></small></td>
       <td><span class="trang-thai-ky tt-<?= e(strtolower($tt)) ?>"><?= e(ten_trang_thai($tt)) ?></span>
-        <?php if ($ycRow): ?><div class="the the-nho the-yeu-cau" title="<?= e($ycLyDo) ?>">⚠ khoa xin mở lại</div><?php endif; ?>
+        <?php if ($ycRow): ?><div class="the the-nho the-yeu-cau" title="<?= e($ycLyDo) ?>"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> khoa xin mở lại</div><?php endif; ?>
       </td>
       <td>
         <?= $daNhap ?>/<?= $soCT ?>
@@ -346,7 +346,7 @@ if ($choDuyet): ?>
 
         <?php if ($tt === 'DA_DUYET'): ?>
           <?php o_mo_ky([
-              'id' => "moky-boduyet-$idK", 'nut' => $ycRow ? 'Mở lại ⚠' : 'Mở lại',
+              'id' => "moky-boduyet-$idK", 'nut' => 'Mở lại',
               'viec' => 'bo_duyet', 'id_khoa' => $idK,
               'tieu_de' => 'Bỏ duyệt & mở lại — ' . $k['ten'],
               'placeholder' => 'Lý do bỏ duyệt / mở lại', 'nut_gui' => 'Bỏ duyệt & mở lại',
@@ -364,7 +364,7 @@ if ($choDuyet): ?>
         <?php if ($tt === 'DA_KHOA'): ?>
           <?php o_mo_ky([
               'id' => "moky-molai-$idK",
-              'nut' => (co_quyen('ky.mo_lai') ? 'Mở lại' : 'Đề nghị mở lại') . ($ycRow ? ' ⚠' : ''),
+              'nut' => (co_quyen('ky.mo_lai') ? 'Mở lại' : 'Đề nghị mở lại'),
               'viec' => 'mo_lai', 'id_khoa' => $idK,
               'tieu_de' => (co_quyen('ky.mo_lai') ? 'Mở lại kỳ đã khóa' : 'Đề nghị mở lại kỳ') . ' — ' . $k['ten'],
               'placeholder' => 'Lý do mở lại', 'nut_gui' => co_quyen('ky.mo_lai') ? 'Mở lại kỳ' : 'Gửi đề nghị',

@@ -482,13 +482,13 @@ mo_trang('Sao lưu dữ liệu');
 </div>
 
 <div class="tab-phu" role="tablist">
-  <button type="button" class="tab-phu-muc dang" data-tab="taive">⬇ Tải bản sao</button>
-  <button type="button" class="tab-phu-muc" data-tab="solieu">⬆ Số liệu đã nhập</button>
+  <button type="button" class="tab-phu-muc dang" data-tab="taive">Tải bản sao</button>
+  <button type="button" class="tab-phu-muc" data-tab="solieu">Số liệu đã nhập</button>
   <?php if (co_quyen('chitieu.xoa')): ?>
     <button type="button" class="tab-phu-muc" data-tab="thuvien">Thư viện chỉ tiêu</button>
   <?php endif; ?>
   <?php if (co_quyen('he_thong.reset')): ?>
-    <button type="button" class="tab-phu-muc" data-tab="khoiphuc">⚠ Khôi phục</button>
+    <button type="button" class="tab-phu-muc" data-tab="khoiphuc"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:3px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg>Khôi phục</button>
   <?php endif; ?>
 </div>
 
@@ -563,7 +563,7 @@ mo_trang('Sao lưu dữ liệu');
 
   <h3 style="margin:1rem 0 .3rem">1. Tải về (sao lưu / để đẩy lên host)</h3>
   <p class="hang-nut" style="margin:.2rem 0">
-    <a class="nut nut-chinh" href="?tai=so_lieu_json">⬇ Tải file (.json) — tất cả năm</a>
+    <a class="nut nut-chinh" href="?tai=so_lieu_json"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>Tải file (.json) — tất cả năm</a>
     <?php foreach ($slTheoNam as $r): ?>
       <a class="nut nut-phu" href="?tai=so_lieu_json&nam=<?= (int)$r['nam'] ?>">Năm <?= (int)$r['nam'] ?> (<?= number_format((int)$r['n']) ?> dòng)</a>
     <?php endforeach; ?>
@@ -584,7 +584,7 @@ mo_trang('Sao lưu dữ liệu');
     <?= csrf_field() ?>
     <input type="hidden" name="viec" value="nhap_so_lieu">
     <input type="file" name="tep" accept=".json,application/json" required>
-    <button class="nut nut-chinh" type="submit">⬆ Nhập số liệu</button>
+    <button class="nut nut-chinh" type="submit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M5 3h14"/></svg>Nhập số liệu</button>
   </form>
 </section>
 </div><!-- /tab solieu -->
@@ -597,7 +597,7 @@ mo_trang('Sao lưu dữ liệu');
     Khi nhập, hệ thống chỉ <strong>thêm mã mới / cập nhật mã cũ theo tên mã</strong> —
     <strong>KHÔNG</strong> đụng tới số liệu, kế hoạch, tài khoản hay kỳ.</p>
   <div class="hang-nut">
-    <a class="nut nut-phu" href="?tai=thu_vien">⬇ Xuất thư viện (.json)</a>
+    <a class="nut nut-phu" href="?tai=thu_vien"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>Xuất thư viện (.json)</a>
   </div>
   <form method="post" enctype="multipart/form-data" style="margin-top:14px"
         data-xac-nhan="Nhập thư viện từ file này?&#10;Chỉ thêm/cập nhật chỉ tiêu, không xóa số liệu.">
@@ -607,7 +607,7 @@ mo_trang('Sao lưu dữ liệu');
       <input type="file" name="file_tv" accept=".json,application/json" required>
     </label>
     <div class="form-chan">
-      <button class="nut nut-chinh" type="submit">⬆ Nhập thư viện</button>
+      <button class="nut nut-chinh" type="submit"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M7 13l5-5 5 5"/><path d="M5 3h14"/></svg>Nhập thư viện</button>
     </div>
   </form>
 </section>
@@ -623,7 +623,7 @@ $slSL = (int)(qVal('SELECT COUNT(*) FROM so_lieu') ?: 0);
 $slKH = (int)(qVal('SELECT COUNT(*) FROM ke_hoach') ?: 0);
 ?>
 <section class="the-hop" style="border:2px solid var(--loi,#dc2626)">
-  <h2 style="color:var(--loi,#dc2626)">⛔ Khôi phục TOÀN BỘ từ file .sql — XÓA SẠCH dữ liệu hiện tại</h2>
+  <h2 style="color:var(--loi,#dc2626)">Khôi phục TOÀN BỘ từ file .sql — XÓA SẠCH dữ liệu hiện tại</h2>
   <div class="tb tb-nguy">
     <p style="margin:0 0 10px"><strong>Thao tác này XÓA HẾT dữ liệu đang có rồi thay bằng nội dung file.</strong>
       Mọi <strong>chỉ tiêu người dùng đã thêm</strong> và <strong>thứ tự đã sắp xếp</strong> trên host sẽ
@@ -631,7 +631,7 @@ $slKH = (int)(qVal('SELECT COUNT(*) FROM ke_hoach') ?: 0);
     <p style="margin:0 0 10px">Host đang có <strong><?= so((float)$slCT) ?></strong> chỉ tiêu ·
       <strong><?= so((float)$slSL) ?></strong> dòng số liệu ·
       <strong><?= so((float)$slKH) ?></strong> dòng kế hoạch — <strong>TẤT CẢ sẽ bị xóa</strong> và thay bằng file.</p>
-    <p style="margin:0">💡 Chỉ muốn <strong>cập nhật danh mục chỉ tiêu</strong> mà KHÔNG mất số liệu và công sức
+    <p style="margin:0">Chỉ muốn <strong>cập nhật danh mục chỉ tiêu</strong> mà KHÔNG mất số liệu và công sức
       sắp xếp của người dùng? → Dùng tab <strong>“Thư viện → Nhập thư viện (.json)”</strong> ở trên: nó chỉ
       <strong>gộp thêm/cập nhật</strong>, không xóa gì. Chỉ dùng “Khôi phục” khi thật sự muốn thay toàn bộ.</p>
     <p style="margin:10px 0 0">Trước khi khôi phục, bấm <strong>“Tải bản sao (.sql)”</strong> ở trên để có đường lùi.</p>

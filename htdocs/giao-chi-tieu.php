@@ -931,7 +931,7 @@ mo_trang('Giao chỉ tiêu');
 
 <?php if (!$dsCT): ?>
   <div class="tb tb-canh-bao">
-    Khoa này chưa có chỉ tiêu. Bấm nút <strong>➕ Thêm chỉ tiêu</strong> ở góc phải để thêm từng dòng,
+    Khoa này chưa có chỉ tiêu. Bấm nút <strong>+ Thêm chỉ tiêu</strong> ở góc phải để thêm từng dòng,
     hoặc vào <a href="/danh-muc-chi-tieu.php">Thư viện chỉ tiêu</a> nạp bộ mặc định.
   </div>
 <?php else: ?>
@@ -1074,7 +1074,7 @@ mo_trang('Giao chỉ tiêu');
           <small class="nhan-phu">Sửa nhanh cho gọn/đúng quy ước (VD: <code>KB_BH</code>). Gõ để xem mã đang có.</small>
           <small id="sua-ma-tt" class="ma-tt"></small>
           <div class="trung-hang">
-            <button type="button" class="nut nut-nho nut-phu" id="btn-kt-trung">🔍 Chỉ tiêu này có bị trùng?</button>
+            <button type="button" class="nut nut-nho nut-phu" id="btn-kt-trung"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Chỉ tiêu này có bị trùng?</button>
           </div>
           <div id="sua-trung-kq" class="trung-kq"></div>
         </label>
@@ -1856,7 +1856,7 @@ window.NHAN_LOAI = <?= json_encode([
     var trung = (window.DS_CT || []).find(function (c){ return c.m === v && c.i !== idCur; });
     if (trung) {
       tt.className = 'ma-tt ma-tt-trung';
-      tt.textContent = '⚠ Mã "' + v + '" đang thuộc "' + trung.t + '"'
+      tt.textContent = 'Mã "' + v + '" đang thuộc "' + trung.t + '"'
         + (trung.c ? ' (dưới ' + trung.c + ')' : '') + '. Đây là GỘP — nên dùng Kiểm tra trùng lặp.';
     } else {
       tt.className = 'ma-tt ma-tt-trong';
@@ -1923,7 +1923,7 @@ window.NHAN_LOAI = <?= json_encode([
         var nghi = d.items.filter(function (x) { return !x.cung_cha; });
         var h = '';
         if (chac.length) {
-          h += '<div class="trung-kq-tieu trung-kq-canh">⚠ Trùng thật (cùng nội dung lớn) — nên gộp lại:</div><ul>';
+          h += '<div class="trung-kq-tieu trung-kq-canh"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> Trùng thật (cùng nội dung lớn) — nên gộp lại:</div><ul>';
           chac.forEach(function (x) { h += '<li><code>' + esc(x.ma) + '</code> — ' + esc(x.ten) + '</li>'; });
           h += '</ul>';
         }

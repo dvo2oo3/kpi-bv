@@ -269,7 +269,7 @@ mo_trang('Quản lý người dùng');
       <input type="text" id="mk-tam-val" value="<?= e($mkm['mk']) ?>" readonly
              onclick="this.select()"
              style="flex:1;min-width:0;font:700 18px/1.2 ui-monospace,monospace;letter-spacing:2px;text-align:center;padding:12px;border:1.5px solid var(--vien,#e2e8f0);border-radius:10px;background:var(--nen-nhat,#f8fafc)">
-      <button type="button" class="nut nut-chinh" id="nut-copy-mk" style="white-space:nowrap">📋 Copy</button>
+      <button type="button" class="nut nut-chinh" id="nut-copy-mk" style="white-space:nowrap">Copy</button>
     </div>
     <div class="form-chan" style="margin-top:14px">
       <button type="button" class="nut nut-phu" data-dong>Đã lưu, đóng</button>
@@ -284,7 +284,7 @@ mo_trang('Quản lý người dùng');
   if (!btn || !inp) return;
   var xong = function () {
     btn.textContent = '✓ Đã copy';
-    setTimeout(function () { btn.textContent = '📋 Copy'; }, 1600);
+    setTimeout(function () { btn.textContent = 'Copy'; }, 1600);
   };
   btn.addEventListener('click', function () {
     inp.focus(); inp.select();

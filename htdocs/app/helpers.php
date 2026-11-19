@@ -52,7 +52,7 @@ function trang_loi_phien(): void
         . '.nut{display:inline-block;padding:11px 18px;border-radius:10px;font-weight:600;'
         . 'text-decoration:none;font-size:14.5px;border:0;cursor:pointer;margin:4px}'
         . '.c{background:#2563eb;color:#fff}.p{background:transparent;color:#2563eb;border:1px solid #2563eb}'
-        . '</style></head><body><div class="hop"><div class="bieu">⏱️</div>'
+        . '</style></head><body><div class="hop"><div class="bieu"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M9 2h6"/></svg></div>'
         . '<h1>Phiên làm việc đã hết hạn</h1>'
         . '<p>Yêu cầu không hợp lệ hoặc trang đã mở quá lâu. Hãy tải lại rồi thao tác lại giúp bạn nhé.</p>'
         . '<button class="nut c" onclick="location.href=location.pathname">Tải lại trang</button>'

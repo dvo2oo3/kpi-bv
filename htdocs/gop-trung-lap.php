@@ -152,7 +152,7 @@ function xuat_nhom_trung(array $g, int $stt): void
     $giuMacDinh = $ms[0]['id'];
     $xn = 'Gộp ' . (count($ms) - 1) . ' mã trùng vào mã đã chọn?&#10;'
         . ($nghiNgo
-            ? '⚠ Các mã này nằm ở NỘI DUNG LỚN KHÁC NHAU — chỉ gộp nếu chắc chắn là cùng một chỉ tiêu.&#10;'
+            ? 'Các mã này nằm ở NỘI DUNG LỚN KHÁC NHAU — chỉ gộp nếu chắc chắn là cùng một chỉ tiêu.&#10;'
             : '')
         . ($laDev
             ? 'Số liệu sẽ dồn về một mã, KHÔNG tự hoàn tác được.'
@@ -170,7 +170,7 @@ function xuat_nhom_trung(array $g, int $stt): void
         <span class="the the-nho <?= $nghiNgo ? 'the-do' : 'the-canh' ?>"><?= count($ms) ?> mã trùng</span>
       </div>
       <?php if ($nghiNgo): ?>
-        <p class="canh-nghi">⚠ Các mã dưới đây <strong>trùng tên nhưng nằm ở nội dung lớn khác nhau</strong>
+        <p class="canh-nghi"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> Các mã dưới đây <strong>trùng tên nhưng nằm ở nội dung lớn khác nhau</strong>
           (xem cột <em>Nội dung lớn</em>). Thường đây là <strong>khác nghĩa</strong> — ví dụ “Bảo hiểm y tế”
           trong <em>lượt khám</em> khác trong <em>nội trú</em>. Chỉ gộp khi thật sự là một.</p>
       <?php endif; ?>
@@ -190,7 +190,7 @@ function xuat_nhom_trung(array $g, int $stt): void
               <input type="hidden" name="thanh_vien[]" value="<?= $id ?>">
             </td>
             <td><code><?= e($r['ma']) ?></code>
-              <?= $id === $giuMacDinh ? '<span class="the the-nho" title="Gợi ý giữ lại">💡</span>' : '' ?>
+              <?= $id === $giuMacDinh ? '<span class="the the-nho" title="Gợi ý giữ lại">★</span>' : '' ?>
             </td>
             <td><?= e($r['ten']) ?></td>
             <td class="nho"><?= $m['ten_cha'] !== ''
@@ -261,7 +261,7 @@ mo_trang('Kiểm tra trùng lặp');
   <h2 class="tieu-de-khu">Trùng chắc chắn — cùng nội dung lớn
     <span class="the the-nho the-canh"><span class="dem-nhom"><?= count($chac) ?></span> nhóm</span></h2>
   <p class="phu">Các mã cùng tên và cùng chỗ, chỉ khác mã — gộp an toàn.
-     Mã <span class="the the-nho">💡</span> là gợi ý nên giữ (nhiều dữ liệu / là chuẩn).</p>
+     Mã <span class="the the-nho">★</span> là gợi ý nên giữ (nhiều dữ liệu / là chuẩn).</p>
   <?php foreach ($chac as $i => $g) { xuat_nhom_trung($g, $i + 1); } ?>
 </section>
 <?php endif; ?>
@@ -271,7 +271,7 @@ mo_trang('Kiểm tra trùng lặp');
   <h2 class="tieu-de-khu">Nghi ngờ trùng — khác nội dung lớn
     <span class="the the-nho the-do"><span class="dem-nhom"><?= count($nghi) ?></span> nhóm</span></h2>
   <div class="tb tb-canh">
-    ⚠ Các nhóm dưới đây <strong>trùng tên nhưng nằm ở những nội dung lớn khác nhau</strong>.
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> Các nhóm dưới đây <strong>trùng tên nhưng nằm ở những nội dung lớn khác nhau</strong>.
     Phần lớn là <strong>khác nghĩa</strong> (BHYT theo lượt khám ≠ theo nội trú; Loại I phẫu thuật ≠ thủ thuật)
     và <strong>KHÔNG nên gộp</strong>. Chỉ gộp nhóm nào anh chắc chắn là cùng một chỉ tiêu bị đặt nhầm chỗ.
   </div>
@@ -392,6 +392,7 @@ window.DS_MA = <?= json_encode($dsMa, JSON_UNESCAPED_UNICODE) ?>;
     window.xacNhan(f.dataset.hoi, { ok: 'Gộp', huy: 'Hủy', loai: 'nguy' }).then(function (dongY) {
       if (!dongY) { return; }
       var nut = f.querySelector('button[type="submit"]');
+      var chuGoc = nut ? nut.textContent : '';   // nhớ chữ gốc để khôi phục nếu gộp lỗi
       if (nut) { nut.disabled = true; nut.textContent = 'Đang gộp…'; }
       var fd = new FormData(f);
       fd.append('ajax', '1');
@@ -400,7 +401,7 @@ window.DS_MA = <?= json_encode($dsMa, JSON_UNESCAPED_UNICODE) ?>;
         .then(function (d) {
           if (!d.ok) {
             toast(d.loi || 'Không gộp được.', 'canh-bao');
-            if (nut) { nut.disabled = false; nut.textContent = 'Gộp nhóm này về mã đã chọn'; }
+            if (nut) { nut.disabled = false; nut.textContent = chuGoc; }
             return;
           }
           toast(d.msg || 'Đã gộp xong.', 'ok');
@@ -408,7 +409,7 @@ window.DS_MA = <?= json_encode($dsMa, JSON_UNESCAPED_UNICODE) ?>;
         })
         .catch(function () {
           toast('Lỗi kết nối, thử lại.', 'canh-bao');
-          if (nut) { nut.disabled = false; nut.textContent = 'Gộp nhóm này về mã đã chọn'; }
+          if (nut) { nut.disabled = false; nut.textContent = chuGoc; }
         });
     });
   });

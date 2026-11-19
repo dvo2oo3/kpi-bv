@@ -298,7 +298,7 @@ mo_trang('Tổng quan');
       <?= e($KY_TEN[$ky]) ?> · năm <?= $nam ?><?php if (!$anKpi): ?> ·
       tiến độ kỳ vọng <strong><?= $tienDoKyVong ?>%</strong> kế hoạch năm<?php endif; ?>
       <?php if (co_quyen('he_thong.trang_chu')): ?>
-        · <a href="/cau-hinh-trang-chu.php">⚙ Chọn ô hiển thị</a>
+        · <a href="/cau-hinh-trang-chu.php"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px;margin-right:3px"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1l2.1-2.1M17 7l2.1-2.1"/></svg>Chọn ô hiển thị</a>
       <?php endif; ?>
     </p>
   </div>
@@ -605,9 +605,8 @@ mo_trang('Tổng quan');
         <?php if ($cs !== null): ?>
           <div class="cs-o">
             <span class="cs-so"><?= phan_tram($cs) ?></span>
-            <span class="cs-ranh"><span class="cs-day"
-                  style="width:<?= min(100, max(0, round($cs / 1.2))) ?>%"></span>
-              <i class="cs-moc"></i></span>
+            <span class="cs-ranh"><span class="cs-day<?= $cs >= 100 ? ' cs-day-vuot' : '' ?>"
+                  style="width:<?= min(100, max(0, round($cs))) ?>%"></span></span>
           </div>
         <?php else: ?><span class="phu">—</span><?php endif; ?>
       </td>

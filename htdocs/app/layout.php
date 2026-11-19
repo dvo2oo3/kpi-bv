@@ -72,7 +72,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
     }
     // Trang dạng biểu mẫu: thu hẹp + căn giữa cột nội dung cho cân đối.
     $trangBieuMau = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''),
-        ['bao-tri.php', 'reset-du-lieu.php', 'lich-ky.php', 'doi-mat-khau.php'], true);
+        ['bao-tri.php', 'reset-du-lieu.php', 'doi-mat-khau.php'], true);
     ?><!doctype html>
 <html lang="vi">
 <head>
@@ -87,7 +87,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/app.css?v=105">
+<link rel="stylesheet" href="/assets/app.css?v=123">
 </head>
 <body>
 <?php if ($co_menu && $nd): ?>
@@ -212,8 +212,8 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 <?php if ($nd && dang_bao_tri()): ?>
   <div class="tb tb-nguy" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
     <span><?= bao_tri_muc() === 2
-        ? '🔒 <strong>Đang KHÓA CỨNG</strong> — chỉ dev vào được, admin cũng bị chặn.'
-        : '🛠️ <strong>Đang bảo trì thường</strong> — chỉ admin/dev và tài khoản được chọn vào được.' ?></span>
+        ? '<strong>Đang KHÓA CỨNG</strong> — chỉ dev vào được, admin cũng bị chặn.'
+        : '<strong>Đang bảo trì thường</strong> — chỉ admin/dev và tài khoản được chọn vào được.' ?></span>
     <?php if (co_quyen('he_thong.bao_tri')): ?><a class="nut nut-nho" href="/bao-tri.php">Quản lý</a><?php endif; ?>
   </div>
 <?php endif; ?>

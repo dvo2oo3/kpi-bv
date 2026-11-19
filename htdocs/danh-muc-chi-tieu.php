@@ -286,7 +286,7 @@ mo_trang('Thư viện chỉ tiêu');
       <input type="hidden" name="viec" value="ngung_mo_coi">
       <button class="nut nut-nho nut-canh" type="submit"
               data-xac-nhan="Ngừng dùng <?= $soMoCoiDon ?> mã chưa gán khoa nào? Chúng sẽ ẩn khỏi gợi ý mã và danh mục dùng. Số liệu cũ (nếu có) vẫn được giữ — có thể bấm &quot;Dùng lại&quot; sau.">
-        🧹 Dọn: ngừng dùng <?= $soMoCoiDon ?> mã mồ côi
+        Dọn: ngừng dùng <?= $soMoCoiDon ?> mã mồ côi
       </button>
     </form>
     <span class="phu">Chỉ ẩn khỏi danh sách dùng, không xóa — Dùng lại được bất cứ lúc nào.</span>
@@ -371,22 +371,18 @@ mo_trang('Thư viện chỉ tiêu');
               : '<span class="trang-thai tat">Ngừng</span>' ?></div>
       </td>
       <?php if ($duocSua): ?>
-      <td class="thao-tac"><div class="nhom-tt">
+      <td class="thao-tac"><div class="tt-hang">
         <button type="button" class="nut nut-nho nut-phu" data-mo="sua-<?= $id ?>">Sửa</button>
         <button type="button" class="nut nut-nho nut-phu" data-mo="khoa-<?= $id ?>">Khoa</button>
-
         <?php if (!$heThong): ?>
         <form method="post">
           <?= csrf_field() ?>
           <input type="hidden" name="viec" value="doi_thu_vien">
           <input type="hidden" name="id" value="<?= $id ?>">
           <button class="nut nut-nho nut-phu js-tv" type="submit"
-                  title="Chuyển giữa chuẩn (thư viện, lên tổng) và riêng của khoa">
-            <?= (int)($ct['la_chuan'] ?? 1) === 1 ? '→ Riêng' : '→ Chuẩn' ?>
-          </button>
+                  title="Chuyển giữa chuẩn (thư viện, lên tổng) và riêng của khoa"><?= (int)($ct['la_chuan'] ?? 1) === 1 ? '→ Riêng' : '→ Chuẩn' ?></button>
         </form>
         <?php endif; ?>
-
         <?php if (co_quyen('chitieu.ngung') && !($heThong && (int)$ct['hoat_dong'])): ?>
         <form method="post">
           <?= csrf_field() ?>
@@ -396,7 +392,6 @@ mo_trang('Thư viện chỉ tiêu');
                   type="submit"><?= (int)$ct['hoat_dong'] ? 'Ngừng dùng' : 'Dùng lại' ?></button>
         </form>
         <?php endif; ?>
-
         <?php if (co_quyen('chitieu.xoa') && !$heThong && $soDL === 0): ?>
         <form method="post"
               data-xac-nhan="Xóa vĩnh viễn chỉ tiêu <?= e($ct['ma']) ?>?" data-xac-nhan-loai="nguy">
@@ -406,7 +401,7 @@ mo_trang('Thư viện chỉ tiêu');
           <button class="nut nut-nho nut-nguy" type="submit">Xóa</button>
         </form>
         <?php endif; ?>
-        </div><!-- /.nhom-tt -->
+        </div><!-- /.tt-hang -->
 
         <!-- Popup Sửa chỉ tiêu -->
         <div class="lop-phu" id="sua-<?= $id ?>" hidden>

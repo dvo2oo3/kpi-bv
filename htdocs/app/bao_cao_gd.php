@@ -82,7 +82,7 @@ function bao_cao_gd_cau_hinh(): array
 function bao_cao_gd_ds(): array
 {
     // Mẫu CỐ ĐỊNH luôn có: giống bản nộp Sở (khoa QĐ33b + toàn viện QĐ74, đủ chỉ tiêu).
-    $giongSo = ['id' => 'giong_so', 'ten' => '📋 Giống bản Sở (QĐ33b khoa + QĐ74 toàn viện)',
+    $giongSo = ['id' => 'giong_so', 'ten' => 'Giống bản Sở (QĐ33b khoa + QĐ74 toàn viện)',
         'cfg' => bao_cao_gd_chuan(['mau' => 'chi_tiet', 'chi_tiet_thang' => 0, 'theo_so' => 1,
                                    'ky' => 'nam', 'toan_vien' => 1,
                                    'so_qd' => 'Quyết định số 33b/QĐ-TTYT ngày 13/01/2026 của Trung tâm Y tế Nam Sách'])];

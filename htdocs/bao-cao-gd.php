@@ -147,16 +147,16 @@ mo_trang('Xuất báo cáo');
     <label style="flex:1;min-width:240px;margin:0">Tên mẫu
       <input type="text" name="ten_mau" value="<?= e($tenMau) ?>" <?= $khoaCung?'readonly':'' ?> required placeholder="VD: Theo dõi đạt được từng tháng" style="width:100%;max-width:420px<?= $khoaCung?';background:var(--nen-nhe,#f8fafc)':'' ?>">
     </label>
-    <button class="nut nut-chinh" type="submit" name="viec" value="xuat" style="font-size:15px;padding:11px 24px;white-space:nowrap">⬇ Xuất Excel</button>
+    <button class="nut nut-chinh" type="submit" name="viec" value="xuat" style="font-size:15px;padding:11px 24px;white-space:nowrap"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>Xuất Excel</button>
   </div>
 
   <?php if ($khoaCung): ?>
     <div class="tb tb-ok" style="margin-bottom:16px">
-      📋 <strong>Mẫu cố định "Giống bản Sở"</strong> — tự dựng đúng khuôn QĐ33b (từng khoa) + QĐ74 (toàn viện), đủ chỉ tiêu. Chỉ cần chọn <strong>năm · kỳ · khoa</strong> rồi bấm <strong>Xuất Excel</strong>. Muốn mẫu tùy biến khác, bấm <a href="/bao-cao-gd.php?p=__new__&nam=<?= (int)$namMac ?>">Tạo mẫu mới</a>.
+      <strong>Mẫu cố định "Giống bản Sở"</strong> — tự dựng đúng khuôn QĐ33b (từng khoa) + QĐ74 (toàn viện), đủ chỉ tiêu. Chỉ cần chọn <strong>năm · kỳ · khoa</strong> rồi bấm <strong>Xuất Excel</strong>. Muốn mẫu tùy biến khác, bấm <a href="/bao-cao-gd.php?p=__new__&nam=<?= (int)$namMac ?>">Tạo mẫu mới</a>.
     </div>
   <?php else: ?>
     <div style="margin-bottom:16px;padding:12px 14px;background:var(--nen-nhe,#f8fafc);border:1px solid #bae6fd;border-radius:10px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-      <button type="button" class="nut nut-chinh" onclick="moChinhSuaTruong()">✏️ Chỉnh sửa trường theo khoa</button>
+      <button type="button" class="nut nut-chinh" onclick="moChinhSuaTruong()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>Chỉnh sửa trường theo khoa</button>
       <span class="phu" style="flex:1;min-width:220px">Bấm để <strong>thêm / bớt từng trường</strong> (và trường con) cho <strong>từng khoa</strong> — mỗi khoa một sheet riêng.</span>
     </div>
   <?php endif; ?>
@@ -200,7 +200,7 @@ mo_trang('Xuất báo cáo');
     <legend style="font-weight:600;padding:0 6px">Cột hiển thị</legend>
     <label class="o-chon" style="display:block;gap:6px;margin-bottom:8px;font-weight:600;padding:6px 8px;background:var(--nen-nhe,#f8fafc);border-radius:8px">
       <input type="checkbox" name="chi_tiet_thang" value="1" <?= !empty($cfg['chi_tiet_thang'])?'checked':'' ?> onchange="capNhatThang()">
-      📅 Chi tiết từng tháng <small class="nhan-phu">(mẫu "Theo dõi đạt được": T1…T12 + lũy kế Quý/6 tháng/9 tháng/năm, mỗi khoa 1 sheet)</small>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;opacity:.75"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg> Chi tiết từng tháng <small class="nhan-phu">(mẫu "Theo dõi đạt được": T1…T12 + lũy kế Quý/6 tháng/9 tháng/năm, mỗi khoa 1 sheet)</small>
     </label>
     <div id="cot-tong">
     <?php $C=$cfg['cot']; foreach(['nam_truoc'=>'TH năm trước','chi_tieu_truoc'=>'Chỉ tiêu năm trước','chi_tieu'=>'Chỉ tiêu giao','ket_qua'=>'Kết quả đạt được','pt'=>'So KH (%)'] as $k=>$t): ?>
@@ -239,7 +239,7 @@ mo_trang('Xuất báo cáo');
   <fieldset id="fs-ct" style="margin-top:4px;border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:12px">
     <legend style="font-weight:600;padding:0 6px">Chọn trường theo khoa <small class="nhan-phu">(chỉ dùng cho mẫu <strong>Custom</strong>)</small></legend>
     <p class="phu" style="margin:0 0 8px">Chọn khoa → tick những trường muốn hiện trong sheet của khoa đó. Mỗi khoa lưu riêng.</p>
-    <p id="ct-goi-y" class="phu" style="margin:6px 0;display:none">👉 Chọn <strong>"Custom (tự chọn bên dưới)"</strong> ở khung <em>Lọc chỉ tiêu</em> để bật phần này.</p>
+    <p id="ct-goi-y" class="phu" style="margin:6px 0;display:none">Chọn <strong>"Custom (tự chọn bên dưới)"</strong> ở khung <em>Lọc chỉ tiêu</em> để bật phần này.</p>
     <div style="font-weight:600;margin-bottom:6px">Khoa</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <select id="ct-khoa-sel" onchange="capNhatKhoaCt()" style="flex:1;min-width:240px">
@@ -268,14 +268,14 @@ mo_trang('Xuất báo cáo');
   <?php endif; ?>
 
   <div class="form-chan" style="margin-top:18px;padding-top:14px;border-top:1px solid var(--vien,#e2e8f0);display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-    <button class="nut nut-chinh" type="submit" name="viec" value="xuat">⬇ Xuất Excel</button>
+    <button class="nut nut-chinh" type="submit" name="viec" value="xuat"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg>Xuất Excel</button>
     <?php if (!$khoaCung): ?>
-      <button class="nut" type="submit" name="viec" value="luu">💾 Lưu mẫu này</button>
+      <button class="nut" type="submit" name="viec" value="luu"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/><path d="M8 13h8v7"/></svg>Lưu mẫu này</button>
     <?php endif; ?>
     <button class="nut nut-phu" type="submit" name="viec" value="luu_moi">＋ Lưu thành mẫu mới</button>
     <?php if (!$khoaCung && !$laMoi && count($ds) > 1): ?>
       <button class="nut nut-nguy" type="submit" name="viec" value="xoa" style="margin-left:18px"
-              data-xac-nhan="Xóa mẫu &quot;<?= e($tenMau) ?>&quot;?">🗑 Xóa mẫu</button>
+              data-xac-nhan="Xóa mẫu &quot;<?= e($tenMau) ?>&quot;?"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/></svg>Xóa mẫu</button>
     <?php endif; ?>
   </div>
 </form>

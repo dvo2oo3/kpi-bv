@@ -69,7 +69,7 @@ mo_trang('Reset dữ liệu');
 <h1>Reset dữ liệu — trả thông số về 0</h1>
 
 <div class="tb tb-nguy" style="border:1px solid var(--loi-vien,#f0c);background:var(--loi-nen,#fee)">
-  <strong>⚠ Xóa vĩnh viễn, KHÔNG hoàn tác.</strong> Thao tác này xóa số liệu/kế hoạch để làm lại từ đầu.
+  <strong><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4M12 17v.01"/></svg> Xóa vĩnh viễn, KHÔNG hoàn tác.</strong> Thao tác này xóa số liệu/kế hoạch để làm lại từ đầu.
   <strong>Chỉ tiêu, khoa, tài khoản, cài đặt vẫn giữ nguyên.</strong>
   <?php if (co_quyen('sao_luu.tai_ve')): ?>
     <div style="margin-top:6px">Nên <a href="/sao-luu.php?tai=sql"><strong>tải bản sao lưu</strong></a> trước khi xóa.</div>

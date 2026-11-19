@@ -222,7 +222,7 @@ tab_nhap();
   <input type="hidden" name="khoa" value="<?= $idKhoa ?>">
   <div class="tb tb-canh-bao">
     <strong>Soát ánh xạ trước khi ghi.</strong> Dòng nào khớp sẵn thì để nguyên; sai thì chọn lại;
-    lạ thì <em>➕ Tạo chỉ tiêu mới</em> hoặc <em>— Bỏ qua —</em>. Khoa: <strong><?= e($khoa['ten']) ?></strong> · Năm <?= $nam ?>.
+    lạ thì <em>+ Tạo chỉ tiêu mới</em> hoặc <em>— Bỏ qua —</em>. Khoa: <strong><?= e($khoa['ten']) ?></strong> · Năm <?= $nam ?>.
   </div>
   <div class="cuon-ngang">
   <table class="bang">
@@ -239,7 +239,7 @@ tab_nhap();
           <input type="hidden" name="gt[<?= $i ?>]" value="<?= e(json_encode(['thang'=>$d['thang'],'giao'=>$d['giao']], JSON_UNESCAPED_UNICODE)) ?>">
           <select name="map[<?= $i ?>]">
             <option value="" <?= $d['goi_y'] ? '' : '' ?>>— Bỏ qua —</option>
-            <option value="moi" <?= $d['goi_y'] ? '' : 'selected' ?>>➕ Tạo chỉ tiêu mới từ tên này</option>
+            <option value="moi" <?= $d['goi_y'] ? '' : 'selected' ?>>+ Tạo chỉ tiêu mới từ tên này</option>
             <?php foreach ($dsChon as $c): ?>
               <option value="<?= (int)$c['id'] ?>" <?= (int)$c['id'] === $d['goi_y'] ? 'selected' : '' ?>>
                 <?= $c['id_cha'] ? '↳ ' : '' ?><?= e($c['ten']) ?> (<?= e($c['ma']) ?>)</option>

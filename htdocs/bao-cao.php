@@ -273,12 +273,12 @@ mo_trang('Báo cáo & KPI');
     </select>
   </label>
   <label class="o-chon" style="align-self:flex-end;display:inline-flex;gap:6px;align-items:center;font-weight:600;white-space:nowrap">
-    <input type="checkbox" name="thang" value="1" <?= !empty($_GET['thang']) ? 'checked' : '' ?> onchange="this.form.submit()"> 📅 Số liệu 12 tháng
+    <input type="checkbox" name="thang" value="1" <?= !empty($_GET['thang']) ? 'checked' : '' ?> onchange="this.form.submit()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto;opacity:.7"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Số liệu 12 tháng
   </label>
   <?php if (co_quyen('baocao.xuat') || co_quyen('baocao.giam_doc')): ?>
   <a class="nut nut-nho nut-phu" style="align-self:flex-end;white-space:nowrap"
      href="/bao-cao.php?nam=<?= $nam ?>&ky=<?= e($ky) ?>&pv=<?= e($pham_vi) ?><?= $idKhoa ? '&khoa=' . (int)$idKhoa : '' ?>&goc=<?= e($goc) ?><?= !empty($_GET['thang']) ? '&thang=1' : '' ?>&xuat=1"
-     title="Tải Excel đúng view đang xem (khoa QĐ33b + toàn viện QĐ74)">⬇ Xuất Excel</a>
+     title="Tải Excel đúng view đang xem (khoa QĐ33b + toàn viện QĐ74)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M5 21h14"/></svg> Xuất Excel</a>
   <?php endif; ?>
 </form>
 
@@ -347,10 +347,10 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 <p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế Quý I / 6 tháng / 9 tháng / Cả năm — để đối chiếu bảng Excel.
   Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.</p>
 <div class="cuon-ngang">
-<table class="bang" style="font-size:12.5px">
+<table class="bang bang-12t" style="font-size:12.5px">
   <thead>
     <tr>
-      <th class="giua" style="width:34px">STT</th>
+      <th class="giua" style="width:42px">STT</th>
       <th style="min-width:210px">Nội dung</th>
       <th>ĐVT</th>
       <th class="phai">KH năm</th>
@@ -396,7 +396,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
           return $bcLuyKe($d, $key, $rng);
       }; ?>
     <tr class="<?= $d['cap'] ? 'dong-con' : '' ?><?= $laTon ? ' dong-ton' : '' ?>">
-      <td class="giua nho"><?php if ($duocGopBC): ?><input type="checkbox" class="bc-gop-chk" data-id="<?= (int)$d['ct']['id'] ?>" data-ten="<?= e($d['ct']['ten']) ?>" title="Tích để gộp với dòng khác"><?php endif; ?><?= $d['cap'] ? '' : $stt12 ?></td>
+      <td class="giua nho bc-stt"><?php if ($duocGopBC): ?><input type="checkbox" class="bc-gop-chk" data-id="<?= (int)$d['ct']['id'] ?>" data-ten="<?= e($d['ct']['ten']) ?>" title="Tích để gộp với dòng khác"><?php endif; ?><span class="bc-num"><?= $d['cap'] ? '' : $stt12 ?></span></td>
       <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?><?php if ($laTon): ?> <span class="nhan-ton" title="Số tồn — lũy kế lấy số CUỐI KỲ, không cộng dồn các tháng">số tồn</span><?php elseif ($laTyLe): ?> <span class="nhan-tyle" title="Tỷ lệ / trung bình — tính lại theo công thức, không cộng dồn">tỷ lệ/TB</span><?php endif; ?></td>
       <td class="nho"><?= e($d['ct']['don_vi']) ?></td>
       <td class="phai nho"><?php if ($duocSuaTV): ?><span class="bc-o-sua" data-id="<?= (int)$d['ct']['id'] ?>" data-truong="kh" data-raw="<?= e(so_o_nhap($d['chi_tieu_nam'])) ?>" title="Bấm để sửa KH năm (toàn viện)"><?= so($d['chi_tieu_nam'], $le2) ?></span><?php else: ?><?= so($d['chi_tieu_nam'], $le2) ?><?php endif; ?></td>
@@ -589,8 +589,14 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 <input type="hidden" id="bc-gop-csrf" value="<?= e(csrf_token()) ?>">
 <div id="bc-gop-bar" hidden>
   <span id="bc-gop-dem">Đã chọn 0 dòng</span>
-  <button type="button" class="nut nut-nho" id="bc-gop-mo">Gộp các dòng đã chọn</button>
+  <button type="button" class="nut nut-nho" id="bc-gop-mo">Gộp</button>
+  <button type="button" class="nut nut-nho" id="bc-an">Ẩn</button>
+  <button type="button" class="nut nut-nho" id="bc-xuat">Xuất CSV</button>
   <button type="button" class="nut nut-nho nut-phu" id="bc-gop-clear">Bỏ chọn</button>
+</div>
+<div id="bc-an-undo" hidden>
+  <span id="bc-an-dem">Đã ẩn 0 dòng</span>
+  <button type="button" class="nut nut-nho nut-phu" id="bc-an-hien">Hiện lại</button>
 </div>
 <div id="bc-gop-modal" hidden>
   <div class="bc-gop-pop">
@@ -625,6 +631,12 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   .bc-gop-kieu { display:flex; align-items:center; gap:8px; padding:4px 2px; font-size:13.5px; }
   .bc-gop-nut { display:flex; gap:8px; margin-top:14px; }
   .bc-gop-note { margin-top:8px; }
+  #bc-gop-bar .nut[disabled] { opacity:.45; pointer-events:none; }
+  tr.bc-hidden { display:none !important; }
+  #bc-an-undo { position:fixed; left:50%; transform:translateX(-50%); bottom:70px; z-index:54;
+    display:flex; align-items:center; gap:12px; background:#334155; color:#fff;
+    padding:9px 16px; border-radius:999px; box-shadow:0 8px 30px rgba(0,0,0,.3); }
+  #bc-an-dem { font-weight:600; font-size:13px; }
 </style>
 <script>
 (function () {
@@ -632,16 +644,49 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   var modal = document.getElementById('bc-gop-modal');
   var token = document.getElementById('bc-gop-csrf').value;
   function daChon() { return Array.prototype.slice.call(document.querySelectorAll('.bc-gop-chk:checked')); }
+  function soAn() { return document.querySelectorAll('tr.bc-hidden').length; }
+  function capNhatUndo() {
+    var u = document.getElementById('bc-an-undo'); var n = soAn();
+    document.getElementById('bc-an-dem').textContent = 'Đã ẩn ' + n + ' dòng'; u.hidden = n < 1;
+  }
   function capNhatBar() {
     var n = daChon().length;
     document.getElementById('bc-gop-dem').textContent = 'Đã chọn ' + n + ' dòng';
-    bar.hidden = n < 2;
+    document.getElementById('bc-gop-mo').disabled = n < 2;
+    bar.hidden = n < 1;
+  }
+  function cellText(el) { return (el.textContent || '').replace(/\s+/g, ' ').trim(); }
+  function csvCell(s) { return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function xuatCsv() {
+    var ds = daChon(); if (!ds.length) { return; }
+    var table = ds[0].closest('table'); if (!table) { return; }
+    var head = Array.prototype.slice.call(table.querySelectorAll('thead th')).slice(1).map(cellText);
+    var rows = ds.map(function (c) {
+      return Array.prototype.slice.call(c.closest('tr').children).slice(1).map(cellText);
+    });
+    var csv = [head].concat(rows).map(function (r) { return r.map(csvCell).join(','); }).join('\r\n');
+    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'bao-cao-da-chon.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
   document.addEventListener('change', function (e) { if (e.target.classList.contains('bc-gop-chk')) { capNhatBar(); } });
   document.addEventListener('click', function (e) {
     if (e.target.id === 'bc-gop-clear') {
       document.querySelectorAll('.bc-gop-chk:checked').forEach(function (c) { c.checked = false; }); capNhatBar(); return;
     }
+    if (e.target.id === 'bc-an') {
+      var dsAn = daChon(); if (!dsAn.length) { return; }
+      dsAn.forEach(function (c) { var tr = c.closest('tr'); if (tr) { tr.classList.add('bc-hidden'); } c.checked = false; });
+      capNhatBar(); capNhatUndo(); return;
+    }
+    if (e.target.id === 'bc-an-hien') {
+      document.querySelectorAll('tr.bc-hidden').forEach(function (tr) { tr.classList.remove('bc-hidden'); });
+      capNhatUndo(); return;
+    }
+    if (e.target.id === 'bc-xuat') { xuatCsv(); return; }
     if (e.target.id === 'bc-gop-mo') {
       var ds = daChon(); if (ds.length < 2) { return; }
       var html = '';

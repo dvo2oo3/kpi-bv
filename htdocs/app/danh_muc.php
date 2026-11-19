@@ -109,6 +109,9 @@ function chuan_hoa_khop(string $ten): string
         ' gb ' => ' giuong benh ', ' tmh ' => ' tai mui hong ',
         ' hpq ' => ' hen phe quan ', ' pnmt ' => ' phu nu mang thai ',
         ' bn ' => ' benh nhan ', ' xn ' => ' xet nghiem ', ' nt ' => ' noi tru ',
+        // Tiền tố "Trong đó:" hay bị gõ tắt "T đó" / "Tr đó" → đưa về "trong do"
+        // để bước lọc từ đệm bên dưới bỏ như nhau (khỏi tách nhầm nhóm trùng).
+        ' t do ' => ' trong do ', ' tr do ' => ' trong do ',
     ];
     $s = strtr($s, $vietTat);
     $s = preg_replace('/ (tong|so|cac|trong|do|cua|lan) /', ' ', $s);   // bỏ từ đệm

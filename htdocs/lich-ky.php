@@ -286,8 +286,8 @@ mo_trang('Lịch mở kỳ');
 </div>
 
 <div class="tab-phu" role="tablist">
-  <button type="button" class="tab-phu-muc dang" data-tab="lich">📅 Lịch mở kỳ</button>
-  <button type="button" class="tab-phu-muc" data-tab="giahan">⏳ Gia hạn &amp; thu hồi</button>
+  <button type="button" class="tab-phu-muc dang" data-tab="lich"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>Lịch mở kỳ</button>
+  <button type="button" class="tab-phu-muc" data-tab="giahan"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><path d="M6 3h12M6 21h12M7 3c0 4 4 5 5 7 1-2 5-3 5-7M7 21c0-4 4-5 5-7 1 2 5 3 5 7"/></svg>Gia hạn &amp; thu hồi</button>
 </div>
 
 <div class="tab-noi" data-tab="lich">
@@ -314,6 +314,7 @@ mo_trang('Lịch mở kỳ');
   </form>
 </section>
 
+<section class="the-hop" style="margin-bottom:1rem">
 <h2>Đặt nhanh cho cả 12 tháng</h2>
 <form method="post" class="bieu-mau-ngang">
   <?= csrf_field() ?>
@@ -349,9 +350,11 @@ mo_trang('Lịch mở kỳ');
     tháng 6 vào đầu tháng 7.
   </p>
 </form>
+</section>
 
-<h2>Lịch từng tháng</h2>
-<div class="cuon-ngang">
+<section class="the-hop" style="margin-bottom:1rem">
+<h2 style="margin-top:0">Lịch từng tháng</h2>
+<div class="cuon-ngang" style="margin-bottom:0;box-shadow:none">
 <table class="bang">
   <thead>
     <tr><th>Tháng</th><th>Mở từ</th><th>Đóng sau</th><th>Nguồn</th>
@@ -386,6 +389,7 @@ mo_trang('Lịch mở kỳ');
         <?php else: ?><span class="phu">—</span><?php endif; ?>
       </td>
       <td class="thao-tac">
+        <div class="lk-nut">
         <details>
           <summary>Sửa</summary>
           <form method="post">
@@ -436,17 +440,20 @@ mo_trang('Lịch mở kỳ');
           <button class="nut nut-nho nut-nguy" type="submit">Khóa lại ngay</button>
         </form>
         <?php endif; ?>
+        </div>
       </td>
     </tr>
   <?php endfor; ?>
   </tbody>
 </table>
 </div>
+</section>
 
 </div><!-- /tab lich -->
 
 <div class="tab-noi" data-tab="giahan" hidden>
-<h2>Gia hạn cho khoa</h2>
+<section class="the-hop" style="margin-bottom:1rem">
+<h2 style="margin-top:0">Gia hạn cho khoa</h2>
 <p class="phu">
   Dùng khi khoa nộp muộn hoặc cần nhập bổ sung sau khi lịch chung đã đóng.
   Chọn <strong>một hoặc nhiều khoa</strong>. Gia hạn đè lên mọi lịch, nhưng không mở lại được kỳ đã duyệt/đã khóa.
@@ -455,17 +462,19 @@ mo_trang('Lịch mở kỳ');
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="gia_han">
   <input type="hidden" name="nam" value="<?= $nam ?>">
-  <fieldset style="border:1px solid var(--vien,#e2e8f0);border-radius:10px;padding:10px 12px;margin-bottom:10px">
+  <fieldset style="border:1px solid var(--vien-nhat);border-radius:10px;padding:12px 14px;margin-bottom:12px;background:var(--nen-nhe,transparent)">
     <legend style="font-weight:600;padding:0 6px">Chọn khoa</legend>
-    <label class="o-chon" style="display:inline-flex;gap:6px;margin:0 16px 6px 0;font-weight:600">
-      <input type="checkbox" onclick="ghChonHet(this)"> Tất cả
+    <label class="o-chon" style="font-weight:700;margin:0 0 8px;width:fit-content">
+      <input type="checkbox" onclick="ghChonHet(this)"> Tất cả các khoa
     </label>
-    <?php foreach ($dsKhoa as $k): ?>
-      <label class="o-chon" style="display:inline-flex;gap:6px;margin:0 16px 6px 0">
-        <input type="checkbox" class="gh-khoa" name="id_khoa[]" value="<?= (int)$k['id'] ?>">
-        <strong><?= e($k['ma']) ?></strong> <span class="phu"><?= e($k['ten']) ?></span>
-      </label>
-    <?php endforeach; ?>
+    <div class="luoi-o-chon">
+      <?php foreach ($dsKhoa as $k): ?>
+        <label class="o-chon">
+          <input type="checkbox" class="gh-khoa" name="id_khoa[]" value="<?= (int)$k['id'] ?>">
+          <span><strong><?= e($k['ma']) ?></strong> <span class="phu"><?= e($k['ten']) ?></span></span>
+        </label>
+      <?php endforeach; ?>
+    </div>
   </fieldset>
   <div class="bieu-mau-ngang">
     <label>Tháng
@@ -484,14 +493,16 @@ mo_trang('Lịch mở kỳ');
 <script>
 function ghChonHet(o){ document.querySelectorAll('.gh-khoa').forEach(c => c.checked = o.checked); }
 </script>
+</section>
 
 <?php if ($giaHan): ?>
-<h3>Đang gia hạn</h3>
+<section class="the-hop" style="margin-bottom:1rem">
+<h3 style="margin-top:0">Đang gia hạn</h3>
 <form method="post">
   <?= csrf_field() ?>
   <input type="hidden" name="viec" value="thu_hoi">
   <input type="hidden" name="nam" value="<?= $nam ?>">
-  <div class="cuon-ngang">
+  <div class="cuon-ngang" style="margin-bottom:0;box-shadow:none">
   <table class="bang">
     <thead><tr>
       <th style="width:32px"><input type="checkbox" onclick="thChonHet(this)" title="Chọn tất cả"></th>
@@ -523,6 +534,7 @@ function ghChonHet(o){ document.querySelectorAll('.gh-khoa').forEach(c => c.chec
 <script>
 function thChonHet(o){ document.querySelectorAll('.th-muc').forEach(c => c.checked = o.checked); }
 </script>
+</section>
 <?php endif; ?>
 </div><!-- /tab giahan -->
 
