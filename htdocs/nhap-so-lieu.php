@@ -29,7 +29,7 @@ if (!$dsKhoa) {
     exit;
 }
 
-$idKhoa = (int)($_GET['khoa'] ?? $dsKhoa[0]['id']);
+$idKhoa = khoa_dang_lam($dsKhoa);         // nhớ khoa đang làm (cookie)
 if (!co_quyen_voi_khoa($idKhoa)) {
     bat_buoc_quyen('solieu.xem_tat_ca');
 }

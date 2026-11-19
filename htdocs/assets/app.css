@@ -1651,13 +1651,29 @@ td.thao-tac > details[open] > summary { background: #ffedd5; border-color: #fdba
   box-shadow: 6px 0 6px -6px rgba(15, 23, 42, .18); }
 .bang-12t thead th:first-child,
 .bang-12t thead th:nth-child(2) { z-index: 4; }
-/* Ô thân + header của 2 cột neo cần nền đục để chữ cột tháng không lộ ra khi cuộn. */
+/* Ô thân + header của 2 cột neo cần nền ĐỤC để chữ cột tháng không lộ ra khi cuộn.
+   Ép !important + khớp màu sọc chẵn/lẻ, vì theme tối đặt nền ô = trong suốt. */
 .bang-12t tbody td:first-child,
-.bang-12t tbody td:nth-child(2) { background: var(--the); }
+.bang-12t tbody td:nth-child(2) { background: var(--the) !important; }
+.bang-12t tbody tr:nth-child(even) td:first-child,
+.bang-12t tbody tr:nth-child(even) td:nth-child(2) { background: #f7f9fc !important; }
+html[data-theme="dark"] .bang-12t tbody td:first-child,
+html[data-theme="dark"] .bang-12t tbody td:nth-child(2) { background: var(--the) !important; }
+html[data-theme="dark"] .bang-12t tbody tr:nth-child(even) td:first-child,
+html[data-theme="dark"] .bang-12t tbody tr:nth-child(even) td:nth-child(2) { background: #182230 !important; }
 .bang-12t thead th:first-child,
 .bang-12t thead th:nth-child(2) { background: #f8fafc; }
 html[data-theme="dark"] .bang-12t thead th:first-child,
 html[data-theme="dark"] .bang-12t thead th:nth-child(2) { background: #0f1826; }
+/* Khung cuộn riêng cho bảng 12 tháng: giới hạn chiều cao để hàng tiêu đề + 2 cột
+   đầu DÍNH khi cuộn; thanh cuộn ngang to dễ kéo; con trỏ gợi ý kéo-rê được. */
+.cuon-12t { max-height: 72vh; overflow: auto; cursor: grab; }
+.cuon-12t.dang-keo { cursor: grabbing; user-select: none; }
+.cuon-12t .bc-o-sua, .cuon-12t .bc-bt-sua, .cuon-12t a, .cuon-12t input { cursor: pointer; }
+.cuon-12t::-webkit-scrollbar { height: 13px; width: 13px; }
+.cuon-12t::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 7px; border: 3px solid var(--the); }
+.cuon-12t::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+html[data-theme="dark"] .cuon-12t::-webkit-scrollbar-thumb { background: #3a4c6a; }
 
 .bang {
   width: 100%;

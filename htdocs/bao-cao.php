@@ -12,7 +12,7 @@ if (!co_quyen('baocao.toan_vien') && !co_quyen('baocao.khoa_minh')) {
     bat_buoc_quyen('baocao.khoa_minh');
 }
 
-$nam = (int)($_GET['nam'] ?? NAM_MAC_DINH);
+$nam = nam_dang_lam();                     // nhớ năm đang xem (cookie)
 // Mặc định "đến nay": lũy kế tới tháng gần nhất đã xong (năm cũ = cả 12 tháng).
 $namNay = (int)date('Y');
 $thangDenNay = ($nam === $namNay) ? min(12, max(1, (int)date('n') - 1)) : 12;
@@ -35,7 +35,7 @@ $pham_vi = $_GET['pv'] ?? ($xemToanVien ? 'toan_vien' : 'khoa');
 if ($pham_vi === 'toan_vien' && !$xemToanVien) {
     $pham_vi = 'khoa';
 }
-$idKhoa = (int)($_GET['khoa'] ?? ($dsKhoa[0]['id'] ?? 0));
+$idKhoa = khoa_dang_lam($dsKhoa);          // nhớ khoa đang xem (cookie)
 if ($pham_vi === 'khoa' && $idKhoa && !co_quyen_voi_khoa($idKhoa)) {
     bat_buoc_quyen('baocao.toan_vien');
 }
@@ -346,7 +346,8 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 </style>
 <p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế 3T / 6T / 9T / 12T (hết Quý I / 6 tháng / 9 tháng / cả năm) — để đối chiếu bảng Excel.
   Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.</p>
-<div class="cuon-ngang">
+<p class="phu nho" style="margin:.15rem 0 .4rem">Mẹo: hàng tiêu đề và 2 cột đầu (STT · Nội dung) <strong>luôn dính</strong> khi cuộn. Cuộn ngang: <strong>kéo-rê chuột</strong> trên bảng, giữ <strong>Shift + lăn chuột</strong>, hoặc kéo thanh cuộn dưới.</p>
+<div class="cuon-ngang cuon-12t">
 <table class="bang bang-12t" style="font-size:12.5px">
   <thead>
     <tr>
@@ -413,6 +414,27 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   </tbody>
 </table>
 </div>
+<script>
+/* Bảng 12 tháng: kéo-rê chuột để cuộn ngang cho tiện (bỏ qua khi bấm ô sửa/link). */
+(function () {
+  var box = document.querySelector('.cuon-12t');
+  if (!box) return;
+  var down = false, sx = 0, sl = 0;
+  box.addEventListener('mousedown', function (e) {
+    if (e.button !== 0 || e.target.closest('input, a, button, .bc-o-sua, .bc-bt-sua, .bc-gop-chk')) return;
+    down = true; sx = e.pageX; sl = box.scrollLeft; box.classList.add('dang-keo');
+  });
+  window.addEventListener('mousemove', function (e) {
+    if (!down) return;
+    box.scrollLeft = sl - (e.pageX - sx);
+    e.preventDefault();
+  });
+  window.addEventListener('mouseup', function () { down = false; box.classList.remove('dang-keo'); });
+  box.addEventListener('wheel', function (e) {        // Shift + lăn chuột → cuộn ngang
+    if (e.shiftKey && e.deltaY) { box.scrollLeft += e.deltaY; e.preventDefault(); }
+  }, { passive: false });
+})();
+</script>
 <?php else: ?>
 <div class="cuon-ngang">
 <table class="bang<?= $duocSapXep ? ' bang-sapxep' : '' ?>" id="bang-bc"<?= $duocSapXep ? ' data-sapxep="1"' : '' ?>>

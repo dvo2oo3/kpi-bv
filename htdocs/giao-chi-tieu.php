@@ -177,9 +177,9 @@ if (isset($_GET['ajax_trung']) && $duocSuaCT) {
     exit;
 }
 
-$nam    = (int)($_GET['nam'] ?? NAM_MAC_DINH);
+$nam    = nam_dang_lam();                 // nhớ năm đang làm (cookie)
 $dsKhoa = qAll('SELECT * FROM khoa WHERE hoat_dong = 1 ORDER BY thu_tu, ten');
-$idKhoa = (int)($_GET['khoa'] ?? ($dsKhoa[0]['id'] ?? 0));
+$idKhoa = khoa_dang_lam($dsKhoa);         // nhớ khoa đang làm (cookie)
 $khoa   = q1('SELECT * FROM khoa WHERE id = ?', [$idKhoa]);
 
 if (!$khoa) {

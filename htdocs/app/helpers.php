@@ -146,6 +146,48 @@ function so_o_nhap($v): string
 }
 
 /**
+ * "Nhớ tiến trình" — khoa đang làm việc.
+ *
+ * Mở trang theo khoa mà KHÔNG có ?khoa= trên URL (thoát tab rồi mở lại, bấm từ
+ * menu…) thì trước đây luôn rơi về khoa ĐẦU danh sách. Hàm này ghi khoa vừa chọn
+ * vào cookie (30 ngày) và trả về khoa đã nhớ nếu còn hợp lệ, để quay lại đúng khoa.
+ *
+ * $dsKhoa: danh sách khoa HỢP LỆ với người dùng (đã lọc quyền) — khoa nhớ chỉ dùng
+ * khi nằm trong danh sách này, nên không lo nhớ khoa đã ẩn / không có quyền.
+ */
+function khoa_dang_lam(array $dsKhoa): int
+{
+    $ids = array_map(fn($k) => (int)$k['id'], $dsKhoa);
+    $dau = $ids[0] ?? 0;
+    if (isset($_GET['khoa'])) {                       // vừa chọn khoa → nhớ lại
+        $id = (int)$_GET['khoa'];
+        if (in_array($id, $ids, true) && !headers_sent()) {
+            setcookie('khoa_dang_lam', (string)$id, time() + 2592000, '/');
+        }
+        return $id;                                   // giữ nguyên hành vi cũ (khoa lạ → trang tự báo lỗi)
+    }
+    $nho = (int)($_COOKIE['khoa_dang_lam'] ?? 0);     // không có trên URL → dùng khoa đã nhớ
+    return in_array($nho, $ids, true) ? $nho : $dau;
+}
+
+/**
+ * "Nhớ tiến trình" — năm đang xem (Giao chỉ tiêu, Báo cáo). Cùng kiểu cookie như
+ * khoa_dang_lam(). Mặc định về NAM_MAC_DINH nếu chưa nhớ hoặc năm nhớ vô lý.
+ */
+function nam_dang_lam(): int
+{
+    if (isset($_GET['nam'])) {
+        $n = (int)$_GET['nam'];
+        if ($n >= 2000 && $n <= 2100) {
+            if (!headers_sent()) { setcookie('nam_dang_lam', (string)$n, time() + 2592000, '/'); }
+            return $n;
+        }
+    }
+    $nho = (int)($_COOKIE['nam_dang_lam'] ?? 0);
+    return ($nho >= 2000 && $nho <= 2100) ? $nho : NAM_MAC_DINH;
+}
+
+/**
  * Đọc một ô số từ biểu mẫu. Trả về null nếu để trống.
  *
  * Người dùng có thể gõ "1.234,5" (kiểu Việt Nam) hoặc "1234.5".
