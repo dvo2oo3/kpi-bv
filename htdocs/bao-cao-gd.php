@@ -121,8 +121,11 @@ $khoaHet  = ($khoaChon === 'all' || !is_array($khoaChon));
 
 mo_trang('Xuất báo cáo');
 ?>
-<h1>Xuất báo cáo</h1>
-<p class="phu" style="margin-top:-6px">Lưu nhiều <strong>mẫu xuất</strong> khác nhau. Chọn mẫu để xem/sửa/xuất, hoặc tạo mẫu mới.</p>
+<div class="dau-muc">
+  <h1 style="margin:0">Xuất báo cáo</h1>
+  <a class="nut nut-phu" href="/xem-truoc-khuon.php?nam=<?= (int)$namMac ?>">Xem trước khuôn (kiểm dòng trống) →</a>
+</div>
+<p class="phu" style="margin-top:-6px">Lưu nhiều <strong>mẫu xuất</strong> khác nhau. Chọn mẫu để xem/sửa/xuất, hoặc tạo mẫu mới. Muốn soát dòng nào sẽ trống trước khi xuất thì bấm <strong>Xem trước khuôn</strong>.</p>
 
 <div class="the-hop" style="max-width:1500px;margin-bottom:14px">
   <div style="font-weight:600;margin-bottom:6px">Mẫu đã lưu <span class="phu" style="font-weight:400">· <?= count($ds) ?> mẫu</span></div>

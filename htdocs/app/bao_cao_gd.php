@@ -46,6 +46,48 @@ function gd_dong_khuon($maCt, array $idx): ?array
     return $tong;
 }
 
+/* ====================================================================
+ * NỐI NGUỒN KHUÔN (cấu hình được trong UI, không cần sửa code).
+ * Lưu ở cai_dat['khuon_nguon'] (JSON): { khoa_ma => { rowIndex => [mã,...] } }.
+ *   - không có khóa  → dùng mã MẶC ĐỊNH trong KHUON_SO_KHOA.
+ *   - mảng [mã,…]    → dòng này lấy số từ các mã đó (nhiều = cộng gộp).
+ *   - mảng rỗng []   → CỐ Ý để trống.
+ * ==================================================================== */
+
+/** Đọc toàn bộ map nối nguồn khuôn. */
+function khuon_map(): array
+{
+    $v = cai_dat_lay('khuon_nguon');
+    $d = $v ? json_decode($v, true) : null;
+    return is_array($d) ? $d : [];
+}
+
+/** Mã HIỆU DỤNG của dòng khuôn thứ $i ở khoa $khoaMa: override (nếu có) hoặc mặc định. */
+function khuon_ma_hieu_dung(array $map, string $khoaMa, int $i, $maMacDinh)
+{
+    if (isset($map[$khoaMa]) && array_key_exists((string) $i, $map[$khoaMa])) {
+        $ov = $map[$khoaMa][(string) $i];
+        if (!is_array($ov) || $ov === []) { return null; }           // cố ý để trống
+        return count($ov) === 1 ? $ov[0] : array_values($ov);        // 1 mã = chuỗi; nhiều = mảng (cộng gộp)
+    }
+    return $maMacDinh;
+}
+
+/** Lưu override 1 dòng. $dsMa: mảng mã (rỗng = cố ý trống); null = bỏ override (về mặc định).
+ *  Trả về MAP MỚI (trong bộ nhớ) để gọi tiếp mà không vướng cache tĩnh của cai_dat. */
+function khuon_map_dat(string $khoaMa, int $i, ?array $dsMa): array
+{
+    $map = khuon_map();
+    if ($dsMa === null) {
+        unset($map[$khoaMa][(string) $i]);
+        if (isset($map[$khoaMa]) && !$map[$khoaMa]) { unset($map[$khoaMa]); }
+    } else {
+        $map[$khoaMa][(string) $i] = array_values(array_unique($dsMa));
+    }
+    cai_dat_dat('khuon_nguon', $map ? json_encode($map, JSON_UNESCAPED_UNICODE) : null);
+    return $map;
+}
+
 /**
  * Bộ "chỉ tiêu chính" — bám theo mẫu "Theo dõi chỉ tiêu các khoa đạt được":
  * các chỉ tiêu QĐ 74 + chi tiết xét nghiệm, KHÔNG có các dòng con nhỏ
@@ -439,6 +481,7 @@ function xuat_bao_cao_theo_so(int $nam, array $cfg): void
 <?php
     // ===================== SHEET TỪNG KHOA (QĐ33b) =====================
     $soSheet = 0;
+    $khuonMap = khuon_map();   // nối nguồn RIÊNG (cấu hình ở trang Xem trước khuôn)
     foreach (KHUON_SO_META as $ma => $meta):
         [$tab, $tieuDe] = $meta;
         $k    = $khoaMa[$ma] ?? null;
@@ -474,8 +517,9 @@ function xuat_bao_cao_theo_so(int $nam, array $cfg): void
     <Cell ss:StyleID="dau"><Data ss:Type="String">Thực hiện</Data></Cell>
   </Row>
 <?php
-        foreach ($rows as [$stt, $ten, $dvt, $cap, $maCt]):
-            $d   = gd_dong_khuon($maCt, $idx);
+        foreach ($rows as $ri => [$stt, $ten, $dvt, $cap, $maCt]):
+            $maEff = khuon_ma_hieu_dung($khuonMap, $ma, $ri, $maCt);   // override hoặc mặc định
+            $d   = gd_dong_khuon($maEff, $idx);
             $le  = $d && in_array($d['ct']['loai_gia_tri'] ?? 'DEM', ['TY_LE', 'TRUNG_BINH'], true);
             $kSo = $le ? 'so1' : 'so';
 ?>

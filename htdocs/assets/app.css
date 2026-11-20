@@ -629,6 +629,41 @@ select {
 /* Loại giá trị RIÊNG theo khoa (khác loại chung) — nổi bật nhẹ bằng màu hổ phách. */
 .o-kieu .kieu-rieng { display: block; font-size: 11px; font-weight: 600; margin-top: 3px; color: #b45309; }
 html[data-theme="dark"] .o-kieu .kieu-rieng { color: #fbbf24; }
+/* Trang "Xem trước khuôn": dòng sẽ TRỐNG khi xuất — tô cảnh báo hổ phách. */
+.bang-xtk tbody tr.dong-canh-bao td { background: #fffbeb !important; }
+.bang-xtk tbody tr.dong-canh-bao td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+html[data-theme="dark"] .bang-xtk tbody tr.dong-canh-bao td { background: #2a2310 !important; }
+/* Thanh tab khoa (như sheet Excel) + badge trạng thái trên trang Xem trước khuôn. */
+.xtk-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px;
+  border-bottom: 2px solid var(--vien); }
+.xtk-tab { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+  border: 1px solid var(--vien); border-bottom: none; border-radius: 10px 10px 0 0;
+  background: var(--nen-nhe, #f8fafc); color: var(--chu-2); font-size: 13px; font-weight: 600;
+  cursor: pointer; margin-bottom: -2px; }
+.xtk-tab:hover { background: var(--the); color: var(--chu); }
+.xtk-tab.active { background: var(--the); color: var(--chu); box-shadow: inset 0 -3px 0 var(--xanh-500); }
+.xtk-badge { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; line-height: 1.5; }
+.xtk-badge-ok { background: #dcfce7; color: #15803d; }
+.xtk-badge-loi { background: #fef3c7; color: #b45309; }
+.xtk-panel-dau { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 4px 0 10px; }
+html[data-theme="dark"] .xtk-badge-ok { background: #14321f; color: #86efac; }
+html[data-theme="dark"] .xtk-badge-loi { background: #2a2310; color: #fbbf24; }
+/* Ô "Nguồn (bấm để sửa)" + bảng chọn chỉ tiêu (nối nguồn inline). */
+.xtk-nguon { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 8px;
+  border: 0.5px solid var(--vien); border-radius: 8px; background: var(--the); color: var(--chu-2);
+  font-size: 12.5px; cursor: pointer; text-align: left; }
+.xtk-nguon:hover { border-color: var(--xanh-500); color: var(--chu); }
+.xtk-nguon-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.xtk-but { color: var(--chu-3); font-size: 12px; }
+.xtk-pop { margin-top: 8px; width: 270px; max-width: 100%; background: var(--the);
+  border: 1px solid var(--vien); border-radius: 10px; box-shadow: 0 8px 24px rgba(0, 0, 0, .14); padding: 8px; }
+.xtk-pop-loc { width: 100%; margin-bottom: 6px; }
+.xtk-pop-ds { max-height: 220px; overflow-y: auto; }
+.xtk-pop-mu { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 13px;
+  cursor: pointer; border-radius: 6px; }
+.xtk-pop-mu:hover { background: rgba(127, 127, 127, .12); }
+.xtk-pop-chan { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+.xtk-pop-bao { font-size: 12px; }
 .o-tt-gop { white-space: nowrap; }
 .luoi-o-chon[hidden] { display: none; }
 .luoi-o-chon {
