@@ -19,6 +19,34 @@ function gd_so_o($v, string $sty): string
 }
 
 /**
+ * Lấy dữ liệu MỘT dòng khuôn theo mã. $maCt có thể là:
+ *  - null  → dòng không có số.
+ *  - chuỗi → một mã (tra thẳng trong $idx).
+ *  - mảng  → CỘNG GỘP nhiều mã vào một dòng, vd khoa XN: "Tổng số vi sinh + Miễn dịch"
+ *            = TONG_SO_XN_VSV_KST + MIEN_DICH (khoa nhập ở 2 mã riêng).
+ * $idx: map mã → dòng bang_theo_khoa/bang_toan_vien (chi_tieu_nam, thuc_hien, nam_truoc…).
+ */
+function gd_dong_khuon($maCt, array $idx): ?array
+{
+    if ($maCt === null) { return null; }
+    if (!is_array($maCt)) { return $idx[$maCt] ?? null; }
+    $tong = ['nam_truoc' => null, 'chi_tieu_nam_truoc' => null,
+             'chi_tieu_nam' => null, 'thuc_hien' => null, 'ct' => ['loai_gia_tri' => 'DEM']];
+    $coGi = false;
+    foreach ($maCt as $m) {
+        $r = $idx[$m] ?? null;
+        if (!$r) { continue; }
+        $coGi = true;
+        foreach (['nam_truoc', 'chi_tieu_nam_truoc', 'chi_tieu_nam', 'thuc_hien'] as $k) {
+            if (($r[$k] ?? null) !== null) { $tong[$k] = ($tong[$k] ?? 0) + (float) $r[$k]; }
+        }
+    }
+    if (!$coGi) { return null; }
+    $tong['pt_nam'] = pt_so_ke_hoach_nam($tong['thuc_hien'], $tong['chi_tieu_nam']);
+    return $tong;
+}
+
+/**
  * Bộ "chỉ tiêu chính" — bám theo mẫu "Theo dõi chỉ tiêu các khoa đạt được":
  * các chỉ tiêu QĐ 74 + chi tiết xét nghiệm, KHÔNG có các dòng con nhỏ
  * (BH/viện phí, khỏi/đỡ, chuyển viện chi tiết…). Mỗi khoa chỉ hiện phần được gán.
@@ -447,8 +475,8 @@ function xuat_bao_cao_theo_so(int $nam, array $cfg): void
   </Row>
 <?php
         foreach ($rows as [$stt, $ten, $dvt, $cap, $maCt]):
-            $d   = ($maCt !== null) ? ($idx[$maCt] ?? null) : null;
-            $le  = $d && in_array($d['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
+            $d   = gd_dong_khuon($maCt, $idx);
+            $le  = $d && in_array($d['ct']['loai_gia_tri'] ?? 'DEM', ['TY_LE', 'TRUNG_BINH'], true);
             $kSo = $le ? 'so1' : 'so';
 ?>
   <Row>

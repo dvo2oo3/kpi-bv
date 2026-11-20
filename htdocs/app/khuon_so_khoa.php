@@ -73,9 +73,9 @@ const KHUON_SO_KHOA = [
     ['1', 'Tổng xét nghiệm chung', '', 0, 'XN'],
     ['', 'Tổng số XN hóa sinh', 'Lần', 1, 'TONG_SO_XN_HOA_SINH'],
     ['', 'Tổng số XN huyết học', 'Lần', 1, 'TONG_SO_XN_HUYET_HOC'],
-    ['', 'Tổng số vi sinh + Miễn dịch', 'Lần', 1, 'TONG_SO_VI_SINH_VA_MIEN_DICH'],
+    ['', 'Tổng số vi sinh + Miễn dịch', 'Lần', 1, ['TONG_SO_XN_VSV_KST', 'MIEN_DICH']],
     ['', 'Tổng XN nước tiểu', 'Lần', 1, 'TONG_SO_XN_NUOC_TIEU'],
-    ['2', 'Tổng số XN HIV', 'Lần', 0, 'TONG_SO_XN_HIV'],
+    ['2', 'Tổng số XN HIV', 'Lần', 0, 'TONG_SO_HIV'],
     ['3', 'Đề tài nghiên cứu', 'Đề tài', 0, 'NCKH'],
   ],
   'LCK' => [
