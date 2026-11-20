@@ -561,25 +561,7 @@ if (la_post()) {
                WHERE id=?',
                 [$tenS, $dvS, $f['loai'], $f['nguon'], $f['huong'], $f['phan_bo'],
                  $f['phep_tinh'], $f['ct_tu'], $f['ct_mau'], $f['nhan_so_ngay'], $gvLuu, $chuan, $moTaS, $id]);
-            // Loại giá trị RIÊNG theo khoa: '' (theo chung) → NULL; khác → ghi đè cho khoa này.
-            // (Ô "loai_gia_tri" ẩn ở form Giao chỉ tiêu vẫn giữ loại CHUNG — không đổi ở đây.)
-            $loaiRieng = post('loai_rieng');
-            if (!in_array($loaiRieng, ['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'], true)) {
-                $loaiRieng = '';   // rỗng/không hợp lệ = theo loại chung
-            }
-            try {
-                q('UPDATE chi_tieu_ap_dung SET loai_gia_tri = ? WHERE id_chi_tieu = ? AND id_khoa = ?',
-                    [$loaiRieng === '' ? null : $loaiRieng, $id, $idKhoa]);
-            } catch (Throwable $e) {
-                // CSDL host chưa có cột loai_gia_tri ở chi_tieu_ap_dung (migration chưa chạy).
-                // Chỉ nuốt đúng lỗi "thiếu cột" (SQLSTATE 42S22) để báo rõ; lỗi khác vẫn ném.
-                if (strpos($e->getMessage(), 'loai_gia_tri') !== false
-                    || ($e instanceof PDOException && $e->getCode() === '42S22')) {
-                    $thieuCotLoaiKhoa = true;
-                } else {
-                    throw $e;
-                }
-            }
+            // (Loại giá trị RIÊNG theo khoa xử lý CHUNG ở dưới — áp cho cả chỉ tiêu hệ thống.)
             // (Vị trí trong bảng do phía client xử lý bằng cơ chế kéo-thả — xem datViTri.)
             // Đổi mã (nếu có): cập nhật luôn các tham chiếu theo mã (gộp vào / công thức).
             if ($maMoi !== '' && $maMoi !== $cu['ma']) {
@@ -590,6 +572,28 @@ if (la_post()) {
                 ghi_nhat_ky('DOI_MA_CHI_TIEU', $cu['ma'], '→ ' . $maMoi);
             }
             ghi_nhat_ky('SUA_CHI_TIEU', $maMoi !== '' ? $maMoi : $cu['ma'], $tenS);
+        }
+        // Loại giá trị RIÊNG theo khoa — áp cho MỌI chỉ tiêu (kể cả HỆ THỐNG), chỉ khi
+        // không có lỗi. Chỉ ghi vào chi_tieu_ap_dung của khoa này, KHÔNG đụng định nghĩa
+        // chung → nhờ vậy một khoa có thể để "Nước tiểu" là Ghi chú (không cộng dồn) riêng.
+        if ($loiSua === null && $cu) {
+            $loaiRieng = post('loai_rieng');
+            if (!in_array($loaiRieng, ['DEM','TRUNG_BINH','TY_LE','HANG_SO','GHI_CHU'], true)) {
+                $loaiRieng = '';   // rỗng/không hợp lệ = theo loại chung
+            }
+            try {
+                q('UPDATE chi_tieu_ap_dung SET loai_gia_tri = ? WHERE id_chi_tieu = ? AND id_khoa = ?',
+                    [$loaiRieng === '' ? null : $loaiRieng, $id, $idKhoa]);
+            } catch (Throwable $e) {
+                // CSDL host chưa có cột loai_gia_tri (migration chưa chạy). Chỉ nuốt đúng
+                // lỗi "thiếu cột" (SQLSTATE 42S22) để báo rõ; lỗi khác vẫn ném.
+                if (strpos($e->getMessage(), 'loai_gia_tri') !== false
+                    || ($e instanceof PDOException && $e->getCode() === '42S22')) {
+                    $thieuCotLoaiKhoa = true;
+                } else {
+                    throw $e;
+                }
+            }
         }
         if (post('ajax') === '1') {
             header('Content-Type: application/json; charset=utf-8');
@@ -1514,7 +1518,11 @@ function suaCT(id) {
   var kqTrung = document.getElementById('sua-trung-kq');
   if (kqTrung) { kqTrung.innerHTML = ''; kqTrung.className = 'trung-kq'; }   // dọn kết quả cũ
   document.getElementById('sua-ht').hidden = !ht;
-  document.querySelectorAll('#f-sua-ct [data-tinh]').forEach(function (s) { s.disabled = ht; });
+  document.querySelectorAll('#f-sua-ct [data-tinh]').forEach(function (s) {
+    // Ô "Loại giá trị (riêng khoa này)" LUÔN cho sửa — kể cả chỉ tiêu hệ thống —
+    // vì chỉ đổi cho khoa này, không đụng định nghĩa chung (vd Nước tiểu = Ghi chú).
+    s.disabled = (s.id === 'sua-loai') ? false : ht;
+  });
   veKhoiSuaCT();
   document.getElementById('modal-sua-ct').hidden = false;
 }

@@ -214,14 +214,23 @@ $soRieng = count(array_filter($cayDayDu,
     fn($c) => !la_he_thong($c['ma']) && (int)($c['la_chuan'] ?? 1) === 0));
 
 // Khoa áp dụng mỗi chỉ tiêu — để lọc "chưa gán khoa" và hiện cột Khoa áp dụng.
+// Gom luôn các khoa đặt LOẠI GIÁ TRỊ RIÊNG (khác loại chung) để hiện ở cột KIỂU.
 $apDung = [];
+$loaiRieng = [];   // [id_chi_tieu => [[id_khoa, loai], ...]]
 foreach (qAll('SELECT * FROM chi_tieu_ap_dung') as $r) {
-    $apDung[(int)$r['id_chi_tieu']][] = (int)$r['id_khoa'];
+    $idCtAp = (int)$r['id_chi_tieu'];
+    $apDung[$idCtAp][] = (int)$r['id_khoa'];
+    $lr = $r['loai_gia_tri'] ?? null;   // null-safe cho CSDL cũ chưa có cột
+    if ($lr !== null && $lr !== '') {
+        $loaiRieng[$idCtAp][] = [(int)$r['id_khoa'], $lr];
+    }
 }
 $maKhoa = [];
 foreach ($dsKhoa as $k) {
     $maKhoa[(int)$k['id']] = $k['ma'];
 }
+// Nhãn NGẮN của loại giá trị — hiện gọn phần "riêng theo khoa" ở cột KIỂU.
+$loaiNgan = ['DEM' => 'Đếm', 'TRUNG_BINH' => 'TB', 'TY_LE' => 'Tỷ lệ %', 'HANG_SO' => 'Hằng số', 'GHI_CHU' => 'Ghi chú'];
 // Mã "mồ côi" = chưa gán khoa nào. Dọn được = mồ côi + đang dùng + không phải hệ thống.
 $soMoCoi    = count(array_filter($cayDayDu, fn($c) => !isset($apDung[(int)$c['id']])));
 $soMoCoiDon = count(array_filter($cayDayDu,
@@ -342,6 +351,13 @@ mo_trang('Thư viện chỉ tiêu');
       <td class="nho o-kieu">
         <span class="kieu-loai"><?= e(NHAN[$ct['loai_gia_tri']] ?? $ct['loai_gia_tri']) ?></span>
         <span class="kieu-phu phu"><?= $ct['nguon'] === 'NHAP_TAY' ? 'Khoa nhập' : e(NHAN[$ct['nguon']]) ?> · <?= e(NHAN[$ct['huong']] ?? $ct['huong']) ?></span>
+        <?php $ovs = $loaiRieng[(int)$ct['id']] ?? [];
+        if ($ovs): ?>
+          <span class="kieu-rieng" title="Khoa đặt loại giá trị RIÊNG, khác loại chung">riêng:
+            <?php $parts = [];
+              foreach ($ovs as [$idK, $lr]) { $parts[] = ($maKhoa[$idK] ?? '?') . '=' . ($loaiNgan[$lr] ?? $lr); }
+              echo e(implode(', ', $parts)); ?></span>
+        <?php endif; ?>
       </td>
       <td class="nho">
         <?php if ($ds):
