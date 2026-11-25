@@ -735,6 +735,24 @@ function ke_hoach_nam(int $nam, int $idKhoa): array
     return $bo_nho[$k] = $kq;
 }
 
+/** Hệ số mùa vụ (ke_hoach_thang) của cả một khoa trong 1 năm, nạp 1 lần:
+ *  [id_chi_tieu] => [thang => chi_tieu]. Trước đây mỗi chỉ tiêu một câu truy vấn
+ *  (khoa × chỉ tiêu = hàng nghìn truy vấn cho báo cáo toàn viện); gộp lại còn 1. */
+function ke_hoach_thang_khoa(int $nam, int $idKhoa): array
+{
+    static $bo_nho = [];
+    $k = "$nam:$idKhoa";
+    if (isset($bo_nho[$k])) {
+        return $bo_nho[$k];
+    }
+    $kq = [];
+    foreach (qAll('SELECT id_chi_tieu, thang, chi_tieu FROM ke_hoach_thang
+                    WHERE nam = ? AND id_khoa = ?', [$nam, $idKhoa]) as $r) {
+        $kq[(int)$r['id_chi_tieu']][(int)$r['thang']] = (float)$r['chi_tieu'];
+    }
+    return $bo_nho[$k] = $kq;
+}
+
 /**
  * Chỉ tiêu của một kỳ, phân bổ từ chỉ tiêu năm.
  *
@@ -752,16 +770,9 @@ function chi_tieu_cua_ky(int $nam, array $cacThang, int $idKhoa, int $idChiTieu,
         return null;
     }
 
-    // Hệ số mùa vụ ghi đè, nếu có
-    $ghiDe = qAll(
-        'SELECT thang, chi_tieu FROM ke_hoach_thang
-          WHERE nam = ? AND id_khoa = ? AND id_chi_tieu = ?',
-        [$nam, $idKhoa, $idChiTieu]);
-    if ($ghiDe) {
-        $map = [];
-        foreach ($ghiDe as $r) {
-            $map[(int)$r['thang']] = (float)$r['chi_tieu'];
-        }
+    // Hệ số mùa vụ ghi đè, nếu có (nạp cả khoa 1 lần rồi tra trong bộ nhớ).
+    $map = ke_hoach_thang_khoa($nam, $idKhoa)[$idChiTieu] ?? [];
+    if ($map) {
         if (count($map) === 12) {
             if ($ct['phan_bo'] === 'KHONG_CHIA') {
                 return $map[$cacThang[0]] ?? null;

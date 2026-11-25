@@ -55,6 +55,23 @@ function tab_nhap(): void
     echo '</div>';
 }
 
+/** Icon nét (SVG, stroke currentColor) cho tiêu đề mục trang Tổng quan.
+ *  Dùng SVG thay emoji để mọi máy/trình duyệt hiển thị giống hệt nhau. */
+function ic_muc(string $k): string
+{
+    $svg = [
+        'tru_cot'    => '<polyline points="3 16 9 10 13 14 21 6"/><polyline points="15 6 21 6 21 12"/>',
+        'khoi_luong' => '<path d="M3 12h3l2 6 4-14 2.5 8 1.5-3H21"/>',
+        'chat_luong' => '<path d="M12 21s-7-4.3-9.2-9A4.9 4.9 0 0 1 12 6.6 4.9 4.9 0 0 1 21.2 12c-2.2 4.7-9.2 9-9.2 9z"/><path d="M3.5 12.5H8l1.5-3 2 5 1.5-2.5h4"/>',
+        'khoa'       => '<path d="M3 21h18"/><path d="M6 21V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v16"/><path d="M14 21V10h3a1 1 0 0 1 1 1v10"/><path d="M10 7.5v3M8.5 9h3"/>',
+        'cham'       => '<polyline points="3 8 9 14 13 10 21 18"/><polyline points="15 18 21 18 21 12"/>',
+    ][$k] ?? '';
+    if ($svg === '') { return ''; }
+    return '<span class="muc-ic"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+         . 'stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+         . $svg . '</svg></span>';
+}
+
 function mo_trang(string $tieu_de, bool $co_menu = true): void
 {
     $nd = nguoi_dung_hien_tai();
@@ -62,11 +79,13 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
     if ($trang === '/index.php') {
         $trang = '/';
     }
-    // Trang con vẫn làm sáng mục menu cha
-    if (str_starts_with($trang, '/chi-tieu-') || $trang === '/gop-trung-lap.php') {
-        $trang = '/danh-muc-chi-tieu.php';
+    // Trang con vẫn làm sáng mục menu cha.
+    if ($trang === '/chi-tieu-toan-vien.php' || $trang === '/doi-chieu-chi-tieu.php') {   // con của Báo cáo
+        $trang = '/bao-cao.php';
+    } elseif (str_starts_with($trang, '/chi-tieu-') || $trang === '/gop-trung-lap.php') {
+        $trang = '/danh-muc-chi-tieu.php';         // các trang chi-tieu-* khác = Thư viện
     }
-    if ($trang === '/xem-truoc-khuon.php') {   // xem trước khuôn = con của Xuất báo cáo
+    if ($trang === '/xem-truoc-khuon.php') {       // xem trước khuôn = con của Xuất báo cáo
         $trang = '/bao-cao-gd.php';
     }
     // "Nhập file khoa" gộp vào tab "Nhập từ Excel"
@@ -74,7 +93,8 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
         $trang = '/nhap-tu-excel.php';
     }
     // Trang dạng biểu mẫu: thu hẹp + căn giữa cột nội dung cho cân đối.
-    $trangBieuMau = in_array(basename($_SERVER['SCRIPT_NAME'] ?? ''),
+    $maTrang = basename($_SERVER['SCRIPT_NAME'] ?? '');
+    $trangBieuMau = in_array($maTrang,
         ['bao-tri.php', 'reset-du-lieu.php', 'doi-mat-khau.php'], true);
     ?><!doctype html>
 <html lang="vi">
@@ -90,7 +110,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/assets/app.css?v=131">
+<link rel="stylesheet" href="/assets/app.css?v=138">
 </head>
 <body>
 <?php if ($co_menu && $nd): ?>
@@ -208,7 +228,7 @@ function mo_trang(string $tieu_de, bool $co_menu = true): void
 })();
 </script>
 <?php endif; ?>
-<main class="<?= $co_menu ? 'noi-dung' : 'noi-dung-giua' ?><?= $trangBieuMau ? ' noi-dung-hep' : '' ?>">
+<main class="<?= $co_menu ? 'noi-dung' : 'noi-dung-giua' ?><?= $trangBieuMau ? ' noi-dung-hep' : '' ?>" data-trang="<?= e($maTrang) ?>">
 <?php foreach (lay_thong_bao() as $tb): ?>
   <div class="tb tb-<?= e($tb['loai']) ?>"><?= e($tb['noi_dung']) ?></div>
 <?php endforeach; ?>

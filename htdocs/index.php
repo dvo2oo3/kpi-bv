@@ -27,6 +27,9 @@ $KY_THANG = ['nay' => $thangDenNay, '3t' => 3, '6t' => 6, '9t' => 9, 'nam' => 12
 $KY_TEN   = ['nay' => $thangDenNay . ' tháng đầu năm (đến nay)',
              '3t' => 'Quý I · 3 tháng', '6t' => '6 tháng đầu năm',
              '9t' => '9 tháng đầu năm', 'nam' => 'Cả năm'];
+// Nhãn ngắn cho nút lọc segmented (hàng ngang không bị quá rộng)
+$KY_NGAN  = ['nay' => 'Đến nay', '3t' => 'Quý I', '6t' => '6 tháng',
+             '9t' => '9 tháng', 'nam' => 'Cả năm'];
 $ky = (string)($_GET['ky'] ?? 'nay');
 if (!isset($KY_THANG[$ky])) { $ky = 'nay'; }
 $soThangKy = $KY_THANG[$ky];
@@ -47,6 +50,21 @@ $dsKhoa = $duocPhep === null
 
 $idKhoaXem = $xemToanVien ? null : (int)($dsKhoa[0]['id'] ?? 0);
 $tenPhamVi = $xemToanVien ? 'Toàn viện' : ($dsKhoa[0]['ten'] ?? '');
+
+// Dashboard toàn viện: CHỈ TIÊU lấy theo "Viện đưa ra" (số chính thức, mặc định)
+// hay "Tổng khoa giao" (cộng thẳng chỉ tiêu các khoa). Chỉ áp cho view toàn viện.
+$nguonTong = $xemToanVien && ($_GET['nguon'] ?? '') === 'tong';
+$apTayKh   = !$nguonTong;   // true = số viện đưa ra (đè); false = tổng khoa giao
+
+// Tạo URL lọc: giữ nguyên các tham số hiện tại, chỉ ghi đè cái được truyền.
+$locUrl = function (array $doi) use (&$nam, &$ky, &$nguonTong, &$idKhoaBC) {
+    $p = ['nam' => $nam, 'ky' => $ky, 'bc' => $idKhoaBC];
+    if ($nguonTong) { $p['nguon'] = 'tong'; }
+    foreach ($doi as $k => $v) {
+        if ($v === null) { unset($p[$k]); } else { $p[$k] = $v; }
+    }
+    return '/index.php?' . http_build_query($p);
+};
 
 // Người dùng chỉ thấy phạm vi mình được phép (bác sĩ = khoa mình). Vì %KH hiển
 // thị luôn là của chính khoa đó nên không còn là "bí mật với người xem" — cho
@@ -116,7 +134,7 @@ foreach ($rowsTruCot as $ct) {
     $ma = $ct['ma'];
     // Tỷ lệ / trung bình hiển thị 1 số lẻ; số đếm để nguyên
     $le = in_array($ct['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true) ? 1 : 0;
-    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ma);
+    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ma, 'giao', $apTayKh);
 
     // Cùng kỳ năm trước, tính từ số liệu thật chứ không lấy chỉ tiêu
     $cungKy = tri_chi_tieu($nam - 1, $cacThangLuyKe, $idKhoaXem, $ma)['th'];
@@ -136,7 +154,7 @@ $chuyenMon = [];
 foreach ($rowsKhoiLuong as $ct) {
     // Vẫn hiện cả khi chưa có số liệu — ô trống là tín hiệu có khoa chưa nhập,
     // ẩn đi thì người xem không biết là đang thiếu.
-    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ct['ma']);
+    $v = tri_chi_tieu($nam, $cacThangLuyKe, $idKhoaXem, $ct['ma'], 'giao', $apTayKh);
     $chuyenMon[] = ['ten' => $nhanThe($ct), 'don_vi' => $ct['don_vi'],
                     'th' => $v['th'], 'kh' => $v['kh_nam'],
                     'pt' => pt_so_ke_hoach_nam($v['th'], $v['kh_nam'])];
@@ -204,7 +222,7 @@ foreach ($dsKhoa as $k) {
 /* ---------- 5. Chỉ tiêu chậm tiến độ ---------- */
 $chamTienDo = [];
 $bang = $idKhoaXem === null
-    ? bang_toan_vien($nam, $cacThangLuyKe, 'giao')
+    ? bang_toan_vien($nam, $cacThangLuyKe, 'giao', $apTayKh)
     : bang_theo_khoa($nam, $cacThangLuyKe, $idKhoaXem, 'giao');
 foreach ($bang as $d) {
     if ($d['cap'] !== 0 || $d['pt_nam'] === null) { continue; }
@@ -302,23 +320,33 @@ mo_trang('Tổng quan');
       <?php endif; ?>
     </p>
   </div>
-  <form method="get" class="hang-nut">
-    <input type="hidden" name="bc" value="<?= (int)$idKhoaBC ?>">
-    <label class="an-nhan">Năm
+  <div class="dau-loc">
+    <form method="get" class="an-nhan loc-nam">
+      <input type="hidden" name="ky" value="<?= e($ky) ?>">
+      <?php if ($nguonTong): ?><input type="hidden" name="nguon" value="tong"><?php endif; ?>
+      <input type="hidden" name="bc" value="<?= (int)$idKhoaBC ?>">
+      <span>Năm</span>
       <select name="nam" onchange="this.form.submit()">
         <?php for ($n = NAM_MAC_DINH; $n >= NAM_MAC_DINH - 3; $n--): ?>
           <option value="<?= $n ?>" <?= $n === $nam ? 'selected' : '' ?>><?= $n ?></option>
         <?php endfor; ?>
       </select>
-    </label>
-    <label class="an-nhan">Kỳ
-      <select name="ky" onchange="this.form.submit()">
-        <?php foreach ($KY_TEN as $mã => $tên): ?>
-          <option value="<?= e($mã) ?>" <?= $mã === $ky ? 'selected' : '' ?>><?= e($tên) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </label>
-  </form>
+    </form>
+    <div class="loc-seg" role="group" aria-label="Kỳ báo cáo">
+      <?php foreach ($KY_NGAN as $mã => $ngan): ?>
+        <a class="<?= $mã === $ky ? 'on' : '' ?>" href="<?= e($locUrl(['ky' => $mã])) ?>"
+           title="<?= e($KY_TEN[$mã]) ?>"><?= e($ngan) ?></a>
+      <?php endforeach; ?>
+    </div>
+    <?php if ($xemToanVien): ?>
+    <div class="loc-seg" role="group" aria-label="Nguồn chỉ tiêu toàn viện">
+      <a class="<?= !$nguonTong ? 'on' : '' ?>" href="<?= e($locUrl(['nguon' => null])) ?>"
+         title="Số chính thức viện đưa ra (đè tổng khoa)">Viện đưa ra</a>
+      <a class="<?= $nguonTong ? 'on' : '' ?>" href="<?= e($locUrl(['nguon' => 'tong'])) ?>"
+         title="Cộng thẳng chỉ tiêu các khoa">Tổng khoa giao</a>
+    </div>
+    <?php endif; ?>
+  </div>
 </div>
 
 <!-- ============ Việc cần làm ============ -->
@@ -364,7 +392,7 @@ mo_trang('Tổng quan');
 <?php if ($xemToanVien): /* Phần toàn viện + KPI — chỉ admin/quản lý */ ?>
 <!-- ============ Bốn chỉ tiêu trụ cột — biểu đồ toàn viện ============ -->
 <h2 class="tieu-de-phan">
-  Toàn viện
+  <?= ic_muc('tru_cot') ?>Toàn viện
   <span class="phu">· biểu đồ xu hướng 12 tháng, lũy kế <?= $soThangKy ?> tháng</span>
 </h2>
 <div class="luoi-kpi">
@@ -438,7 +466,7 @@ mo_trang('Tổng quan');
 
 <!-- ============ Khối lượng chuyên môn ============ -->
 <?php if ($chuyenMon): ?>
-<h2>Khối lượng chuyên môn <span class="phu">· lũy kế <?= $soThangKy ?> tháng</span></h2>
+<h2><?= ic_muc('khoi_luong') ?>Khối lượng chuyên môn <span class="phu">· lũy kế <?= $soThangKy ?> tháng</span></h2>
 <div class="luoi-cm">
   <?php foreach ($chuyenMon as $c):
       $dat = $c['pt'] !== null && $c['pt'] >= $tienDoKyVong; ?>
@@ -467,7 +495,7 @@ mo_trang('Tổng quan');
 
 <!-- ============ Chất lượng điều trị ============ -->
 <?php if ($tongKQ || $anToan || $tongCC): ?>
-<h2>Chất lượng và cơ cấu điều trị nội trú
+<h2><?= ic_muc('chat_luong') ?>Chất lượng và cơ cấu điều trị nội trú
   <span class="phu">· lũy kế <?= $soThangKy ?> tháng</span></h2>
 <div class="luoi-cl">
 
@@ -491,23 +519,30 @@ mo_trang('Tổng quan');
   </section>
   <?php endif; ?>
 
-  <?php if ($tongCC): ?>
+  <?php if ($tongCC):
+      $ccChuVi = 2 * M_PI * 15.9;                       // chu vi vòng donut
+      $ccBh    = round(($coCau[0]['pt'] ?? 0) / 100 * $ccChuVi, 2);
+      $ccMau   = ['var(--xanh-600)', 'var(--xanh-400)'];
+  ?>
   <section class="the-cl">
     <h3>Cơ cấu bệnh nhân nội trú</h3>
-    <table class="bang-gon">
-      <?php foreach ($coCau as $c): ?>
-        <tr>
-          <td><?= e($c['ten']) ?></td>
-          <td class="phai"><?= so($c['th'], 0) ?></td>
-          <td class="phai nho"><?= phan_tram($c['pt']) ?></td>
-          <td class="cot-thanh">
-            <span class="thanh-ty-le">
-              <span style="width:<?= $c['pt'] === null ? 0 : round($c['pt']) ?>%"></span>
-            </span>
-          </td>
-        </tr>
-      <?php endforeach; ?>
-    </table>
+    <div class="donut-cc">
+      <svg width="122" height="122" viewBox="0 0 42 42" role="img" aria-label="Cơ cấu bệnh nhân nội trú">
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--xanh-400)" stroke-width="7"/>
+        <circle cx="21" cy="21" r="15.9" fill="none" stroke="var(--xanh-600)" stroke-width="7"
+                stroke-dasharray="<?= $ccBh ?> <?= round($ccChuVi, 2) ?>"
+                stroke-dashoffset="<?= round($ccChuVi / 4, 2) ?>" transform="rotate(-90 21 21)"/>
+        <text x="21" y="20.5" text-anchor="middle" font-size="6.4" font-weight="800" fill="var(--chu)"><?= so($tongCC, 0) ?></text>
+        <text x="21" y="26" text-anchor="middle" font-size="3.1" fill="var(--chu-3)">bệnh nhân</text>
+      </svg>
+      <div class="leg">
+        <?php foreach ($coCau as $i => $cc): ?>
+          <div><span class="sw" style="background:<?= $ccMau[$i] ?? 'var(--xanh-500)' ?>"></span>
+            <?= e($cc['ten']) ?> — <b><?= phan_tram($cc['pt']) ?></b></div>
+        <?php endforeach; ?>
+        <div class="phu" style="font-size:11.5px">Tổng <?= so($tongCC, 0) ?> bệnh nhân nội trú</div>
+      </div>
+    </div>
   </section>
   <?php endif; ?>
 
@@ -565,7 +600,7 @@ mo_trang('Tổng quan');
 
 <!-- ============ Bảng từng khoa ============ -->
 <?php if (count($bangKhoa) > 1): ?>
-<h2>Toàn bộ các khoa <span class="phu">· lũy kế <?= $soThangKy ?> tháng năm <?= $nam ?></span></h2>
+<h2><?= ic_muc('khoa') ?>Toàn bộ các khoa <span class="phu">· lũy kế <?= $soThangKy ?> tháng năm <?= $nam ?></span></h2>
 <div class="cuon-ngang">
 <table class="bang">
   <thead>
@@ -638,7 +673,7 @@ mo_trang('Tổng quan');
 
 <!-- ============ Chậm tiến độ (KPI — chỉ admin/quản lý) ============ -->
 <?php if ($chamTienDo && $xemToanVien): ?>
-<h2>Chỉ tiêu chậm tiến độ <span class="phu">· thiếu từ 10% trở lên</span></h2>
+<h2><?= ic_muc('cham') ?>Chỉ tiêu chậm tiến độ <span class="phu">· thiếu từ 10% trở lên</span></h2>
 <div class="cuon-ngang">
 <table class="bang">
   <thead>

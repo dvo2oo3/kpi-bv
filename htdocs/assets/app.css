@@ -664,6 +664,12 @@ html[data-theme="dark"] .xtk-badge-loi { background: #2a2310; color: #fbbf24; }
 .xtk-pop-mu:hover { background: rgba(127, 127, 127, .12); }
 .xtk-pop-chan { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
 .xtk-pop-bao { font-size: 12px; }
+/* Trang Chỉ tiêu toàn viện: dòng đặt số riêng + nhãn trạng thái. */
+.bang-ctv .ctv-rieng td { background: #fffbeb; }
+html[data-theme="dark"] .bang-ctv .ctv-rieng td { background: #2a2310; }
+.ctv-nhan { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: #fef3c7; color: #b45309; white-space: nowrap; }
+.ctv-nhan-lech { background: #fde68a; color: #92400e; }
+html[data-theme="dark"] .ctv-nhan { background: #2a2310; color: #fbbf24; }
 .o-tt-gop { white-space: nowrap; }
 .luoi-o-chon[hidden] { display: none; }
 .luoi-o-chon {
@@ -1705,6 +1711,11 @@ html[data-theme="dark"] .bang-12t thead th:first-child,
 html[data-theme="dark"] .bang-12t thead th:nth-child(2) { background: #0f1826; }
 /* Khung cuộn riêng cho bảng 12 tháng: giới hạn chiều cao để hàng tiêu đề + 2 cột
    đầu DÍNH khi cuộn; thanh cuộn ngang to dễ kéo; con trỏ gợi ý kéo-rê được. */
+/* Khung cuộn bảng báo cáo thường: giới hạn chiều cao để HÀNG TIÊU ĐỀ ghim lại
+   khi cuộn xuống (biết số thuộc cột nào). !important vì .bang thead th đặt relative. */
+.cuon-neo { max-height: 80vh; overflow: auto; }
+.cuon-neo thead th { position: sticky !important; top: 0; z-index: 3; }
+
 .cuon-12t { max-height: 72vh; overflow: auto; cursor: grab; }
 .cuon-12t.dang-keo { cursor: grabbing; user-select: none; }
 .cuon-12t .bc-o-sua, .cuon-12t .bc-bt-sua, .cuon-12t a, .cuon-12t input { cursor: pointer; }
@@ -3465,3 +3476,150 @@ html[data-theme="dark"] .spark-c  { background: #16202f; }
 /* Nền vòng tròn donut + gauge (track xám sáng) */
 html[data-theme="dark"] .donut-nen,
 html[data-theme="dark"] .gauge-nen { stroke: #223049; }
+
+/* ============================================================
+ * TỔNG QUAN 2.0 — giao diện hiện đại hơn (scope: trang index.php)
+ * Chỉ tác động trang Tổng quan; các trang khác giữ nguyên.
+ * ========================================================== */
+:root { --grad-xanh: linear-gradient(135deg, var(--xanh-600), var(--xanh-500) 55%, var(--xanh-400)); }
+
+/* Nền có chiều sâu (quầng teal/cyan) — như mockup */
+body:has(main[data-trang="index.php"]) {
+  background-image:
+    radial-gradient(900px 480px at 90% -8%, color-mix(in srgb, var(--xanh-500) 14%, transparent), transparent 60%),
+    radial-gradient(760px 420px at -6% 4%, color-mix(in srgb, var(--xanh-700) 12%, transparent), transparent 55%);
+  background-attachment: fixed; background-repeat: no-repeat;
+}
+html[data-theme="dark"] body:has(main[data-trang="index.php"]) {
+  background-image:
+    radial-gradient(900px 480px at 90% -8%, color-mix(in srgb, var(--xanh-500) 22%, transparent), transparent 60%),
+    radial-gradient(760px 420px at -6% 4%, color-mix(in srgb, var(--xanh-700) 17%, transparent), transparent 55%);
+}
+
+/* Tiêu đề mục: icon nét + chữ + ĐƯỜNG KẺ MỜ kéo dài (đặc trưng mockup) */
+main[data-trang="index.php"] h2,
+main[data-trang="index.php"] .tieu-de-phan {
+  display: flex; align-items: center; gap: 10px;
+  border-bottom: 0; padding: 0; margin: 30px 0 15px;
+  font-size: 16.5px; font-weight: 700; letter-spacing: -.1px; color: var(--xanh-900);
+}
+main[data-trang="index.php"] h2 .phu,
+main[data-trang="index.php"] .tieu-de-phan .phu { font-weight: 500; }
+main[data-trang="index.php"] h2::after,
+main[data-trang="index.php"] .tieu-de-phan::after {
+  content: ""; flex: 1 1 auto; min-width: 24px; height: 1px; align-self: center;
+  background: linear-gradient(90deg, var(--vien-nhat), transparent);
+}
+main[data-trang="index.php"] .muc-ic { color: var(--xanh-600); display: inline-grid; place-items: center; flex: none; }
+main[data-trang="index.php"] .muc-ic svg { width: 21px; height: 21px; }
+
+/* Thẻ KPI trụ cột: viền gradient TRÁI, thẻ sạch (như mockup .kpi) */
+main[data-trang="index.php"] .the-kpi {
+  position: relative; border-color: var(--vien-nhat);
+  border-radius: var(--bo-goc-nhieu); padding-left: 19px; overflow: hidden;
+}
+main[data-trang="index.php"] .the-kpi::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--grad-xanh);
+}
+main[data-trang="index.php"] .the-kpi:hover {
+  transform: translateY(-3px); box-shadow: var(--bong-2);
+  border-color: color-mix(in srgb, var(--xanh-500) 35%, var(--vien-nhat));
+}
+main[data-trang="index.php"] .kpi-so { font-size: clamp(22px, 11cqw, 31px); letter-spacing: -.03em; }
+/* Nhãn đơn vị kiểu mockup (pill xám nhạt) */
+main[data-trang="index.php"] .kpi-don-vi {
+  background: var(--nen); border: 1px solid var(--vien-nhat); color: var(--chu-3); font-weight: 600;
+}
+
+/* badge đạt / chậm thành pill có nền + viền (như mockup .badge) */
+main[data-trang="index.php"] .nhan-dat { background: var(--ok-nen); color: var(--ok); border: 1px solid var(--ok-vien); padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+main[data-trang="index.php"] .nhan-cham { background: var(--canh-nen); color: var(--canh); border: 1px solid var(--canh-vien); padding: 2px 8px; border-radius: 999px; font-weight: 700; }
+
+/* Thanh tiến độ: tô gradient thương hiệu */
+main[data-trang="index.php"] .thanh-tien-do > span { background: var(--grad-xanh) !important; }
+
+/* Ô khối lượng chuyên môn: thẻ sạch, nhấc nhẹ (như mockup .tile) */
+main[data-trang="index.php"] .o-cm {
+  border-color: var(--vien-nhat); transition: transform .16s ease, box-shadow .16s ease;
+}
+main[data-trang="index.php"] .o-cm:hover { transform: translateY(-2px); box-shadow: var(--bong-2); }
+
+/* Thẻ chất lượng + thanh tỷ lệ gradient */
+main[data-trang="index.php"] .the-cl { border-color: var(--vien-nhat); border-radius: var(--bo-goc-nhieu); }
+main[data-trang="index.php"] .thanh-ty-le > span { background: var(--grad-xanh); }
+
+/* Vòng donut cơ cấu bệnh nhân (như mockup) */
+main[data-trang="index.php"] .donut-cc { display: flex; align-items: center; gap: 18px; margin-top: 6px; }
+main[data-trang="index.php"] .donut-cc .leg { font-size: 12.5px; color: var(--chu-2); display: flex; flex-direction: column; gap: 9px; }
+main[data-trang="index.php"] .donut-cc .leg > div { display: flex; align-items: center; gap: 8px; }
+main[data-trang="index.php"] .donut-cc .leg .sw { width: 11px; height: 11px; border-radius: 3px; flex: none; }
+main[data-trang="index.php"] .donut-cc .leg b { font-variant-numeric: tabular-nums; }
+
+/* Bộ lọc: Năm = pill select; Kỳ + Chỉ tiêu = nút segmented (như mockup) */
+main[data-trang="index.php"] .dau-loc { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+main[data-trang="index.php"] .loc-nam {
+  display: inline-flex; align-items: center; gap: 6px; margin: 0;
+  background: var(--the); border: 1px solid var(--vien-nhat); border-radius: 11px;
+  padding: 4px 6px 4px 11px; box-shadow: var(--bong-1); font-size: 12px; color: var(--chu-3);
+}
+main[data-trang="index.php"] .loc-nam select { border: 0; background: transparent; box-shadow: none; padding: 2px 4px; font-weight: 600; color: var(--chu); }
+main[data-trang="index.php"] .loc-seg {
+  display: inline-flex; background: var(--the); border: 1px solid var(--vien-nhat);
+  border-radius: 11px; padding: 3px; box-shadow: var(--bong-1);
+}
+main[data-trang="index.php"] .loc-seg a {
+  padding: 6px 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600;
+  color: var(--chu-3); text-decoration: none; white-space: nowrap; transition: color .12s;
+}
+main[data-trang="index.php"] .loc-seg a:hover { color: var(--xanh-600); }
+main[data-trang="index.php"] .loc-seg a.on {
+  background: var(--grad-xanh); color: #fff;
+  box-shadow: 0 3px 8px -2px color-mix(in srgb, var(--xanh-500) 55%, transparent);
+}
+
+/* Bảng "toàn bộ các khoa" + "chậm tiến độ": đầu bảng sạch, công suất gradient */
+main[data-trang="index.php"] .bang thead th {
+  text-transform: uppercase; font-size: 11px; letter-spacing: .4px; color: var(--chu-3); font-weight: 700;
+}
+main[data-trang="index.php"] .cs-day { background: var(--grad-xanh); }
+main[data-trang="index.php"] .cs-day-vuot { background: linear-gradient(135deg, var(--canh), #f59e0b); }
+
+/* Mã khoa dạng pill nhỏ */
+main[data-trang="index.php"] .lien-ket-khoa {
+  background: color-mix(in srgb, var(--xanh-500) 11%, transparent); color: var(--xanh-700);
+  border: 0; border-radius: 7px; padding: 3px 9px; font-weight: 800;
+}
+main[data-trang="index.php"] .lien-ket-khoa:hover { background: color-mix(in srgb, var(--xanh-500) 20%, transparent); color: var(--xanh-700); }
+
+/* Ô 12 tháng: bo tròn mềm hơn */
+main[data-trang="index.php"] .dai-thang { gap: 3px; background: transparent; }
+main[data-trang="index.php"] .o-thang { border-radius: 5px; }
+html[data-theme="dark"] main[data-trang="index.php"] .dai-thang { background: transparent; }
+
+/* ============================================================
+ * NÂNG GIAO DIỆN CHUNG — áp cho MỌI trang (nhẹ, không đổi layout)
+ * ========================================================== */
+/* Nền có chiều sâu nhẹ ở mọi trang (dashboard có quầng riêng đậm hơn, thắng vì
+ *  selector :has cụ thể hơn). Chỉ thêm ảnh nền, màu nền --nen giữ nguyên. */
+body {
+  background-image:
+    radial-gradient(1000px 520px at 100% -8%, color-mix(in srgb, var(--xanh-500) 7%, transparent), transparent 60%),
+    radial-gradient(720px 400px at -6% 2%, color-mix(in srgb, var(--xanh-700) 6%, transparent), transparent 55%);
+  background-attachment: fixed; background-repeat: no-repeat;
+}
+html[data-theme="dark"] body {
+  background-image:
+    radial-gradient(1000px 520px at 100% -8%, color-mix(in srgb, var(--xanh-500) 13%, transparent), transparent 60%),
+    radial-gradient(720px 400px at -6% 2%, color-mix(in srgb, var(--xanh-700) 11%, transparent), transparent 55%);
+}
+
+/* Bảng dữ liệu đặt trong khung cuộn ngang → bo góc + viền mềm như "card" */
+.noi-dung .cuon-ngang {
+  border: 1px solid var(--vien-nhat); border-radius: var(--bo-goc-nhieu);
+  box-shadow: var(--bong-1); background: var(--the);
+}
+.noi-dung .cuon-ngang > .bang { margin: 0; }
+/* Dòng hover nhẹ (chỉ chế độ sáng; chế độ tối đã có sẵn) */
+html:not([data-theme="dark"]) .noi-dung .bang tbody tr:hover td { background: color-mix(in srgb, var(--xanh-500) 5%, transparent); }
+/* Đầu bảng chữ in hoa giãn nhẹ cho gọn gàng */
+.noi-dung .bang thead th { letter-spacing: .3px; }

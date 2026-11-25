@@ -268,13 +268,32 @@ function xlsx_doc(string $noiDung): array
         return [];
     }
 
+    return xlsx_doc_sheet_tep($tep, $tenSheet);
+}
+
+/** Phân tích một sheet đã giải nén (dùng chung cho xlsx_doc / xlsx_doc_ten). */
+function xlsx_doc_sheet_tep(array $tep, string $file): array
+{
+    $chung = [];
+    if (isset($tep['xl/sharedStrings.xml'])) {
+        $xml = @simplexml_load_string($tep['xl/sharedStrings.xml']);
+        if ($xml) {
+            foreach ($xml->si as $si) {
+                $chung[] = isset($si->t) ? (string)$si->t
+                    : implode('', array_map(fn($r) => (string)$r->t, iterator_to_array($si->r ?? [])));
+            }
+        }
+    }
+    $xml = @simplexml_load_string($tep[$file] ?? '');
+    if (!$xml) {
+        return [];
+    }
     $bang = [];
     foreach ($xml->sheetData->row as $row) {
         $soDong = (int)$row['r'];
         $dong = [];
         foreach ($row->c as $c) {
-            $ref = (string)$c['r'];
-            preg_match('/^([A-Z]+)/', $ref, $m);
+            preg_match('/^([A-Z]+)/', (string)$c['r'], $m);
             $cot = 0;
             foreach (str_split($m[1] ?? 'A') as $ch) {
                 $cot = $cot * 26 + (ord($ch) - 64);
@@ -297,4 +316,44 @@ function xlsx_doc(string $noiDung): array
     }
     ksort($bang);
     return $bang;
+}
+
+/**
+ * Đọc trang tính có TÊN khớp $ketKhop (chuỗi con, không phân biệt hoa/thường) —
+ * để lấy đúng sheet "toàn viện" trong file SẾP nhiều sheet. Không tìm thấy → [].
+ * Trả [rowIndex => [col => val]] như xlsx_doc().
+ */
+function xlsx_doc_ten(string $noiDung, string $ketKhop): array
+{
+    $tep = zip_doc($noiDung);
+    if (!$tep || !isset($tep['xl/workbook.xml'], $tep['xl/_rels/workbook.xml.rels'])) {
+        return [];
+    }
+    $wb   = @simplexml_load_string($tep['xl/workbook.xml']);
+    $rels = @simplexml_load_string($tep['xl/_rels/workbook.xml.rels']);
+    if (!$wb || !$rels) {
+        return [];
+    }
+    $thuong = fn($s) => function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
+    $kk = $thuong($ketKhop);
+    $rid = null;
+    foreach ($wb->sheets->sheet as $sh) {
+        if (strpos($thuong((string)$sh['name']), $kk) !== false) {
+            $a = $sh->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+            $rid = (string)($a['id'] ?? '');
+            break;
+        }
+    }
+    if ($rid === null || $rid === '') {
+        return [];
+    }
+    $file = null;
+    foreach ($rels->Relationship as $rel) {
+        if ((string)$rel['Id'] === $rid) {
+            $tgt  = (string)$rel['Target'];
+            $file = strpos($tgt, '/') === 0 ? ltrim($tgt, '/') : 'xl/' . $tgt;
+            break;
+        }
+    }
+    return ($file !== null && isset($tep[$file])) ? xlsx_doc_sheet_tep($tep, $file) : [];
 }

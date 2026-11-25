@@ -145,6 +145,34 @@ function bcgd_tap_hien(string $mau, array $cfg, ?int $idKhoa): array
 }
 
 /** Bù đủ khóa mặc định cho một cấu hình. */
+/** Các cột TÙY CHỌN hiện/ẩn ở sheet Toàn viện (cột "Các tiêu chí" luôn hiện). */
+function bcgd_cot_tv(): array
+{
+    return [
+        'stt'       => 'STT',
+        'dvt'       => 'Đơn vị tính',
+        'tong_khoa' => 'Tổng khoa giao',
+        'chi_tieu'  => 'Chỉ tiêu giao',
+        'dat'       => 'Đạt (thực hiện)',
+        'so_kh'     => 'So kế hoạch (%)',
+    ];
+}
+
+/** [key => bool] cột nào HIỆN ở sheet Toàn viện. Mặc định hiện hết; tương thích
+ *  tùy chọn cũ an_tong_khoa (ẩn riêng cột Tổng khoa giao). */
+function bcgd_cot_tv_hien(array $cfg): array
+{
+    $keys = array_keys(bcgd_cot_tv());
+    $out  = [];
+    if (isset($cfg['tv_cot']) && is_array($cfg['tv_cot'])) {
+        foreach ($keys as $k) { $out[$k] = !empty($cfg['tv_cot'][$k]); }
+    } else {
+        foreach ($keys as $k) { $out[$k] = true; }
+        if (!empty($cfg['an_tong_khoa'])) { $out['tong_khoa'] = false; }
+    }
+    return $out;
+}
+
 function bao_cao_gd_chuan(array $cfg): array
 {
     $m = array_merge(bao_cao_gd_mac_dinh(), $cfg);
@@ -571,38 +599,51 @@ function xuat_bao_cao_theo_so(int $nam, array $cfg): void
     // Sheet "toàn viện" theo khuôn QĐ74 của Sở — số quyết định cố định, KHÔNG dùng
     // chung với dòng "(Kèm theo …)" ở sheet khoa (đó là QĐ33b của Trung tâm).
     $soSoQd = '74/QĐ-SYT';
+    // Cột sheet Toàn viện — dựng theo danh sách, ẩn cột nào thì bỏ hẳn cột đó.
+    // 'ten' (Các tiêu chí) luôn hiện; nhóm 'trai' = nhãn, 'phai' = số (để gộp tiêu đề đúng).
+    $hienTV = bcgd_cot_tv_hien($cfg);
+    $cotTV  = [
+        'stt'       => ['w' => 34,  'nhan' => 'STT',                    'nhom' => 'trai'],
+        'ten'       => ['w' => 330, 'nhan' => 'CÁC TIÊU CHÍ HOẠT ĐỘNG', 'nhom' => 'trai'],
+        'dvt'       => ['w' => 64,  'nhan' => 'ĐƠN VỊ TÍNH',            'nhom' => 'trai'],
+        'tong_khoa' => ['w' => 92,  'nhan' => 'TỔNG KHOA GIAO',         'nhom' => 'phai'],
+        'chi_tieu'  => ['w' => 94,  'nhan' => 'CHỈ TIÊU GIAO KẾ HOẠCH', 'nhom' => 'phai'],
+        'dat'       => ['w' => 82,  'nhan' => 'ĐẠT',                    'nhom' => 'phai'],
+        'so_kh'     => ['w' => 72,  'nhan' => 'SO KẾ HOẠCH',            'nhom' => 'phai'],
+    ];
+    $cotHienTV = array_filter($cotTV, fn($c, $k) => $k === 'ten' || !empty($hienTV[$k]), ARRAY_FILTER_USE_BOTH);
+    $nTrai = count(array_filter($cotHienTV, fn($c) => $c['nhom'] === 'trai'));
+    $nPhai = count(array_filter($cotHienTV, fn($c) => $c['nhom'] === 'phai'));
 ?>
 <Worksheet ss:Name="toàn viện">
 <Table>
-  <Column ss:Width="34"/><Column ss:Width="330"/><Column ss:Width="64"/>
-  <Column ss:Width="94"/><Column ss:Width="82"/><Column ss:Width="72"/>
-  <Row><Cell ss:StyleID="trai" ss:MergeAcross="2"><Data ss:Type="String">SỞ Y TẾ THÀNH PHỐ HẢI PHÒNG</Data></Cell>
-    <Cell ss:StyleID="td" ss:MergeAcross="2"><Data ss:Type="String">CHỈ TIÊU KẾ HOẠCH CHUYÊN MÔN</Data></Cell></Row>
-  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="2"><Data ss:Type="String">Phụ lục kèm theo Quyết định</Data></Cell>
-    <Cell ss:StyleID="td" ss:MergeAcross="2"><Data ss:Type="String">TRUNG TÂM Y TẾ NAM SÁCH NĂM <?= $nam ?></Data></Cell></Row>
-  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="2"><Data ss:Type="String">Số: <?= $x($soSoQd) ?></Data></Cell></Row>
+  <?php foreach ($cotHienTV as $c): ?><Column ss:Width="<?= $c['w'] ?>"/><?php endforeach; ?>
+  <Row><Cell ss:StyleID="trai" ss:MergeAcross="<?= max(0, $nTrai - 1) ?>"><Data ss:Type="String">SỞ Y TẾ THÀNH PHỐ HẢI PHÒNG</Data></Cell>
+    <?php if ($nPhai > 0): ?><Cell ss:StyleID="td" ss:MergeAcross="<?= $nPhai - 1 ?>"><Data ss:Type="String">CHỈ TIÊU KẾ HOẠCH CHUYÊN MÔN</Data></Cell><?php endif; ?></Row>
+  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="<?= max(0, $nTrai - 1) ?>"><Data ss:Type="String">Phụ lục kèm theo Quyết định</Data></Cell>
+    <?php if ($nPhai > 0): ?><Cell ss:StyleID="td" ss:MergeAcross="<?= $nPhai - 1 ?>"><Data ss:Type="String">TRUNG TÂM Y TẾ NAM SÁCH NĂM <?= $nam ?></Data></Cell><?php endif; ?></Row>
+  <Row><Cell ss:StyleID="trai2" ss:MergeAcross="<?= max(0, $nTrai - 1) ?>"><Data ss:Type="String">Số: <?= $x($soSoQd) ?></Data></Cell></Row>
   <Row/>
   <Row ss:Height="30">
-    <Cell ss:StyleID="dau"><Data ss:Type="String">STT</Data></Cell>
-    <Cell ss:StyleID="dau"><Data ss:Type="String">CÁC TIÊU CHÍ HOẠT ĐỘNG</Data></Cell>
-    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐƠN VỊ TÍNH</Data></Cell>
-    <Cell ss:StyleID="dau"><Data ss:Type="String">CHỈ TIÊU GIAO KẾ HOẠCH</Data></Cell>
-    <Cell ss:StyleID="dau"><Data ss:Type="String">ĐẠT</Data></Cell>
-    <Cell ss:StyleID="dau"><Data ss:Type="String">SO KẾ HOẠCH</Data></Cell>
+    <?php foreach ($cotHienTV as $c): ?><Cell ss:StyleID="dau"><Data ss:Type="String"><?= $x($c['nhan']) ?></Data></Cell><?php endforeach; ?>
   </Row>
 <?php
         foreach ($qd74 as [$stt, $ten, $dvt, $cap, $maCt]):
             $d   = ($maCt !== null) ? ($tv[$maCt] ?? null) : null;
             $le  = $d && in_array($d['ct']['loai_gia_tri'], ['TY_LE', 'TRUNG_BINH'], true);
             $kSo = $le ? 'so1' : 'so';
+            $oCot = [
+                'stt'       => '<Cell ss:StyleID="tt"><Data ss:Type="String">' . $x($stt) . '</Data></Cell>',
+                'ten'       => '<Cell ss:StyleID="' . ($cap ? 'con' : 'ten') . '"><Data ss:Type="String">' . $x($ten) . '</Data></Cell>',
+                'dvt'       => '<Cell ss:StyleID="dv"><Data ss:Type="String">' . $x($dvt) . '</Data></Cell>',
+                'tong_khoa' => $oSo($d['may_cong_kh'] ?? null, $kSo),
+                'chi_tieu'  => $oSo($d['chi_tieu_nam'] ?? null, $kSo),
+                'dat'       => $oSo($d['thuc_hien'] ?? null, $kSo),
+                'so_kh'     => $oSo($d['pt_nam'] ?? null, 'pt'),
+            ];
 ?>
   <Row>
-    <Cell ss:StyleID="tt"><Data ss:Type="String"><?= $x($stt) ?></Data></Cell>
-    <Cell ss:StyleID="<?= $cap ? 'con' : 'ten' ?>"><Data ss:Type="String"><?= $x($ten) ?></Data></Cell>
-    <Cell ss:StyleID="dv"><Data ss:Type="String"><?= $x($dvt) ?></Data></Cell>
-    <?= $oSo($d['chi_tieu_nam'] ?? null, $kSo) ?>
-    <?= $oSo($d['thuc_hien'] ?? null, $kSo) ?>
-    <?= $oSo($d['pt_nam'] ?? null, 'pt') ?>
+    <?php foreach (array_keys($cotHienTV) as $k) { echo $oCot[$k]; } ?>
   </Row>
 <?php endforeach; ?>
 </Table>

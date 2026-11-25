@@ -159,8 +159,10 @@ function luy_ke_tu_chuoi(array $m, string $loai, array $rng): ?float
     return $s;
 }
 
-function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
+function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao', bool $apTayKh = true): array
 {
+    // $apTayKh = false → BỎ QUA số chỉ tiêu viện nhập tay, dùng thẳng tổng khoa
+    // (cho dashboard chọn xem theo "Tổng khoa giao").
     $STV = so_toan_vien_cua_nam($nam);   // số toàn viện nhập tay (nếu có)
     $dsKhoa = qAll('SELECT * FROM khoa WHERE hoat_dong = 1 ORDER BY thu_tu, ten');
     $idTheoMa = [];
@@ -246,7 +248,7 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
         $tay = $STV[(int)$ct['id']] ?? null;
         $thMay = $th; $khMay = $khNam;
         if ($tay !== null) {
-            if ($tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') {
+            if ($apTayKh && $tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') {
                 $khNam = (float)$tay['chi_tieu_giao'];
                 $kh    = (float)$tay['chi_tieu_giao'];
             }
@@ -280,7 +282,7 @@ function bang_toan_vien(int $nam, array $cacThang, string $goc = 'giao'): array
  * @return array{th: ?float, kh_nam: ?float}
  */
 function tri_chi_tieu(int $nam, array $cacThang, ?int $idKhoa, string $ma,
-                      string $goc = 'giao'): array
+                      string $goc = 'giao', bool $apTayKh = true): array
 {
     $ct = chi_tieu_theo_ma($ma);
     if (!$ct) {
@@ -328,7 +330,7 @@ function tri_chi_tieu(int $nam, array $cacThang, ?int $idKhoa, string $ma,
     // Số toàn viện nhập tay: đè phép cộng khoa (nhất quán với báo cáo & dashboard).
     $tay = so_toan_vien_cua_nam($nam)[(int)$ct['id']] ?? null;
     if ($tay) {
-        if ($tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') { $kh = (float)$tay['chi_tieu_giao']; }
+        if ($apTayKh && $tay['chi_tieu_giao'] !== null && $tay['chi_tieu_giao'] !== '') { $kh = (float)$tay['chi_tieu_giao']; }
         if ($tay['thuc_hien']     !== null && $tay['thuc_hien']     !== '') { $th = (float)$tay['thuc_hien']; }
     }
     return ['th' => $th, 'kh_nam' => $kh];

@@ -327,6 +327,12 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 <p class="phu">
   Hết <?= e(ten_ky($ky)) ?>, tiến độ kỳ vọng là <strong><?= $tienDoKyVong ?>%</strong> kế hoạch năm.
 </p>
+<?php if ($pham_vi === 'toan_vien'): ?>
+<p style="margin:.1rem 0 .4rem">
+  <a class="nut nut-phu nut-nho" href="/doi-chieu-chi-tieu.php?nam=<?= (int)$nam ?>">Đối chiếu tổng khoa / viện đưa ra →</a>
+  <?php if ($duocSuaTV): ?><a class="nut nut-phu nut-nho" href="/chi-tieu-toan-vien.php?nam=<?= (int)$nam ?>">Sửa chỉ tiêu toàn viện →</a><?php endif; ?>
+</p>
+<?php endif; ?>
 <p class="phu">
   <strong>So KH kỳ</strong> so với chỉ tiêu đã chia cho riêng kỳ này — dùng để chấm đạt/chưa đạt,
   công bằng khi năm chưa hết. <strong>So KH năm</strong> so với chỉ tiêu cả năm — đúng cách tính
@@ -345,7 +351,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
   tr.dong-ton>td:first-child{box-shadow:inset 3px 0 0 #38bdf8}
 </style>
 <p class="phu" style="margin:.25rem 0">Số liệu từng tháng + lũy kế 3T / 6T / 9T / 12T (hết Quý I / 6 tháng / 9 tháng / cả năm) — để đối chiếu bảng Excel.
-  Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.</p>
+  Dòng gắn <span class="nhan-ton">số tồn</span> (giường, quản lý bệnh) và <span class="nhan-tyle">tỷ lệ/TB</span> (công suất, ngày ĐT TB) <strong>KHÔNG cộng dồn</strong> — lũy kế lấy số cuối kỳ / tính lại; các dòng <em>lượt</em> còn lại thì cộng dồn.<?php if ($pham_vi === 'toan_vien'): ?> Dòng gắn <span class="nhan-tay">chính thức</span> = chỉ tiêu toàn viện đặt tay (đè tổng khoa) — rê chuột xem số máy cộng.<?php endif; ?></p>
 <p class="phu nho" style="margin:.15rem 0 .4rem">Mẹo: hàng tiêu đề và 2 cột đầu (STT · Nội dung) <strong>luôn dính</strong> khi cuộn. Cuộn ngang: <strong>kéo-rê chuột</strong> trên bảng, giữ <strong>Shift + lăn chuột</strong>, hoặc kéo thanh cuộn dưới.</p>
 <div class="cuon-ngang cuon-12t">
 <table class="bang bang-12t" style="font-size:12.5px">
@@ -398,7 +404,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       }; ?>
     <tr class="<?= $d['cap'] ? 'dong-con' : '' ?><?= $laTon ? ' dong-ton' : '' ?>">
       <td class="giua nho bc-stt"><?php if ($duocGopBC): ?><input type="checkbox" class="bc-gop-chk" data-id="<?= (int)$d['ct']['id'] ?>" data-ten="<?= e($d['ct']['ten']) ?>" title="Tích để gộp với dòng khác"><?php endif; ?><span class="bc-num"><?= $d['cap'] ? '' : $stt12 ?></span></td>
-      <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?><?php if ($laTon): ?> <span class="nhan-ton" title="Số tồn — lũy kế lấy số CUỐI KỲ, không cộng dồn các tháng">số tồn</span><?php elseif ($laTyLe): ?> <span class="nhan-tyle" title="Tỷ lệ / trung bình — tính lại theo công thức, không cộng dồn">tỷ lệ/TB</span><?php endif; ?></td>
+      <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?><?php if ($laTon): ?> <span class="nhan-ton" title="Số tồn — lũy kế lấy số CUỐI KỲ, không cộng dồn các tháng">số tồn</span><?php elseif ($laTyLe): ?> <span class="nhan-tyle" title="Tỷ lệ / trung bình — tính lại theo công thức, không cộng dồn">tỷ lệ/TB</span><?php endif; ?><?php if (!empty($d['tay'])): ?> <span class="nhan-tay" title="Chỉ tiêu toàn viện CHÍNH THỨC (đặt tay, không tự cộng khoa) — máy cộng khoa KH năm: <?= so($d['may_cong_kh'], $le2) ?>">chính thức</span><?php endif; ?></td>
       <td class="nho"><?= e($d['ct']['don_vi']) ?></td>
       <td class="phai nho"><?php if ($duocSuaTV): ?><span class="bc-o-sua" data-id="<?= (int)$d['ct']['id'] ?>" data-truong="kh" data-raw="<?= e(so_o_nhap($d['chi_tieu_nam'])) ?>" title="Bấm để sửa KH năm (toàn viện)"><?= so($d['chi_tieu_nam'], $le2) ?></span><?php else: ?><?= so($d['chi_tieu_nam'], $le2) ?><?php endif; ?></td>
       <?= $oT(1) ?><?= $oT(2) ?><?= $oT(3) ?>
@@ -436,7 +442,7 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
 })();
 </script>
 <?php else: ?>
-<div class="cuon-ngang">
+<div class="cuon-ngang cuon-neo">
 <table class="bang<?= $duocSapXep ? ' bang-sapxep' : '' ?>" id="bang-bc"<?= $duocSapXep ? ' data-sapxep="1"' : '' ?>>
   <thead>
     <tr>
@@ -444,7 +450,8 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       <th style="width:28%">Nội dung</th>
       <th>Đơn vị</th>
       <th class="phai">Chỉ tiêu kỳ</th>
-      <th class="phai">Chỉ tiêu năm</th>
+      <?php if ($pham_vi === 'toan_vien'): ?><th class="phai">Tổng khoa giao</th><?php endif; ?>
+      <th class="phai"><?= $pham_vi === 'toan_vien' ? 'Viện ra (KH năm)' : 'Chỉ tiêu năm' ?></th>
       <th class="phai">Thực hiện</th>
       <th class="phai">So KH kỳ</th>
       <th class="phai">So KH năm</th>
@@ -463,11 +470,12 @@ $tienDoKyVong = count($cacThang) === 12 ? 100 : round(max($cacThang) / 12 * 100)
       <td><?= $d['cap'] ? '<span class="thut">↳</span> ' : '' ?><?= e($d['ct']['ten']) ?></td>
       <td class="nho"><?= e($d['ct']['don_vi']) ?></td>
       <td class="phai"><?= so($d['chi_tieu'], $le) ?></td>
+      <?php if ($pham_vi === 'toan_vien'): ?><td class="phai nho phu"><?= ($d['may_cong_kh'] ?? null) === null ? '—' : so($d['may_cong_kh'], $le) ?></td><?php endif; ?>
       <td class="phai nho"><?php if ($duocSuaTV): ?><span class="bc-o-sua" data-id="<?= (int)$d['ct']['id'] ?>" data-truong="kh" data-raw="<?= e(so_o_nhap($d['chi_tieu_nam'])) ?>" title="Bấm để sửa KH năm (toàn viện)"><?= so($d['chi_tieu_nam'], $le) ?></span><?php else: ?><?= so($d['chi_tieu_nam'], $le) ?><?php endif; ?></td>
       <td class="phai">
         <?php if ($duocSuaTV): ?><strong class="bc-o-sua" data-id="<?= (int)$d['ct']['id'] ?>" data-truong="th" data-raw="<?= e(so_o_nhap($d['thuc_hien'])) ?>" title="Bấm để sửa số thực hiện (toàn viện)"><?= so($d['thuc_hien'], $le) ?></strong><?php elseif ($btOkTh): ?><strong class="bc-bt-sua" data-id="<?= (int)$d['ct']['id'] ?>" data-thang="<?= $thangCuoiKy ?>" data-che-do="luyke" data-raw="<?= e(so_o_nhap($d['thuc_hien'])) ?>" title="Bấm để sửa số thực hiện — ghi bút toán vào tháng cuối kỳ"><?= so($d['thuc_hien'], $le) ?></strong><?php else: ?><strong><?= so($d['thuc_hien'], $le) ?></strong><?php endif; ?>
         <?php if (!empty($d['tay'])): ?>
-          <span class="nhan-tay" title="Số toàn viện nhập tay (máy cộng khoa: <?= so($d['may_cong_th'], $le) ?>)">nhập tay</span>
+          <span class="nhan-tay" title="Số toàn viện CHÍNH THỨC (đặt tay, không tự cộng khoa) — máy cộng khoa: <?= so($d['may_cong_th'], $le) ?>">chính thức</span>
         <?php endif; ?>
         <?php // Thay đổi so với cùng kỳ năm trước — tô màu theo hướng tốt/xấu
         $th = $d['thuc_hien']; $tr = $d['nam_truoc'];

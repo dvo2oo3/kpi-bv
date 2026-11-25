@@ -34,6 +34,13 @@ function bcgd_doc_form(array $ds, string $pid): array
     ];
     $kc = $_POST['khoa'] ?? [];
     $cfg['khoa'] = (is_array($kc) && $kc) ? array_values(array_map('intval', $kc)) : 'all';
+    // Cột hiện/ẩn ở sheet Toàn viện (có input ẩn tv_cot[_m] nên luôn có mặt khi gửi form)
+    if (isset($_POST['tv_cot'])) {
+        $cfg['tv_cot'] = [];
+        foreach (array_keys(bcgd_cot_tv()) as $k) {
+            $cfg['tv_cot'][$k] = !empty($_POST['tv_cot'][$k]) ? 1 : 0;
+        }
+    }
     if ($cfg['mau'] === 'custom') {
         // custom THEO KHOA: $_POST['ct_khoa'][id_khoa][ma] = 1 (trường được HIỆN)
         $post = $_POST['ct_khoa'] ?? [];
@@ -224,6 +231,15 @@ mo_trang('Xuất báo cáo');
     <label class="o-chon" style="display:flex;gap:6px;align-items:center;margin-bottom:8px;font-weight:600;padding:6px 8px;background:var(--nen-nhe,#f8fafc);border-radius:8px">
       <input type="checkbox" name="toan_vien" value="1" <?= !empty($cfg['toan_vien'])?'checked':'' ?>> + sheet Toàn viện
     </label>
+    <div style="margin:-2px 0 12px;padding:4px 8px 4px 26px">
+      <span class="phu" style="display:block;margin-bottom:5px">Cột ở sheet Toàn viện — <strong>bỏ tích để ẩn</strong> cột đó (cột “Các tiêu chí” luôn hiện):</span>
+      <input type="hidden" name="tv_cot[_m]" value="1">
+      <?php $hienTv = bcgd_cot_tv_hien($cfg); foreach (bcgd_cot_tv() as $k => $nhan): ?>
+        <label class="o-chon" style="display:inline-flex;gap:5px;margin:0 16px 5px 0;font-size:13px">
+          <input type="checkbox" name="tv_cot[<?= $k ?>]" value="1" <?= !empty($hienTv[$k])?'checked':'' ?>> <?= e($nhan) ?>
+        </label>
+      <?php endforeach; ?>
+    </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:4px 14px">
     <?php foreach ($dsKhoa as $k):
       $ch = $khoaHet || in_array((int)$k['id'], array_map('intval',(array)$khoaChon), true); ?>
